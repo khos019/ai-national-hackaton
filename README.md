@@ -4,6 +4,8 @@ Homilador ayollar va chaqaloqlarni **Qizil / Sariq / Yashil** zonalar orqali rea
 Tahlillar yomonlashganda **shifokorga darhol xabarnoma**, javob bo'lmasa — **administratorga eskalatsiya**.
 Ayollar **Telegram bot** orqali holatini yuboradi, **AI yordamchi** erkin matndan ma'lumot ajratib shifokorga yetkazadi.
 
+> 🎬 **Demo video (1080p):** [kollaj_v5_1080p.mp4](https://github.com/khos019/ai-national-hackaton/releases/download/demo-v1/kollaj_v5_1080p.mp4) — [Releases → demo-v1](https://github.com/khos019/ai-national-hackaton/releases/tag/demo-v1)
+>
 > 📊 **Taqdimot (pitch deck):** [docs/PeriZone_LangForge.pdf](docs/PeriZone_LangForge.pdf) — LangForge jamoasi, Milliy AI Xakaton, 9-muammo.
 
 > Hackathon prototype (AI National Hackathon). Clinical thresholds are demo values based on MEOWS / NEWTT2 / WHO
