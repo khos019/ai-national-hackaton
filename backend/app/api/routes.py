@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import threading
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -227,8 +228,16 @@ REQUIRED_BASELINE = {
 }
 
 
+_register_lock = threading.Lock()
+
+
 def register_patient(db: Session, staff: Staff, body: schemas.PatientIn) -> dict:
-    """Shared by the website and the doctor's Telegram wizard."""
+    """Serialized: two simultaneous submits (double click) must not both pass the duplicate check."""
+    with _register_lock:
+        return _register_patient(db, staff, body)
+
+
+def _register_patient(db: Session, staff: Staff, body: schemas.PatientIn) -> dict:
     if not body.consent:
         raise HTTPException(400, "Bemorning ma'lumotlarni qayta ishlashga roziligi kerak")
     initial = body.initial.model_dump() if body.initial else {}
@@ -394,7 +403,7 @@ def list_alerts(status: str | None = None, district_id: int | None = None, limit
     stmt = stmt.order_by(models.Alert.created_at.desc())
     if status == "active":  # red & unacknowledged first, so missed check-ins never bury emergencies
         alerts = sorted(db.scalars(stmt).all(),
-                        key=lambda a: (a.zone != "red", a.status != "open", -a.created_at.timestamp()))[:limit]
+                        key=lambda a: (a.zone != "red", a.status != "open", -(a.updated_at or a.created_at).timestamp()))[:limit]
     else:
         alerts = db.scalars(stmt.limit(limit)).all()
     return [alert_dict(a) for a in alerts]

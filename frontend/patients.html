@@ -187,6 +187,7 @@ $("form").addEventListener("submit", async e => {
     if (k.startsWith("b_")) { body.initial[k.slice(2)] = Number(v); continue; }
     body[k] = nums.includes(k) ? Number(v) : v;
   }
+  const saveBtn = e.submitter; if (saveBtn.disabled) return; saveBtn.disabled = true;  // no double submit
   if (kind === "mother" && !body.lmp_date && f.get("weeks")) {
     const d = new Date(); d.setDate(d.getDate() - Number(f.get("weeks")) * 7); body.lmp_date = d.toISOString().slice(0, 10);
   }
@@ -209,6 +210,7 @@ $("form").addEventListener("submit", async e => {
     $("doneDlg").showModal();
     load();
   } catch (err) { toast(err.message, 6000); }
+  finally { saveBtn.disabled = false; }
 });
 
 let t; $("q").oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };

@@ -163,20 +163,22 @@ async function boot(active, { ownerOnly = false } = {}) {
 }
 
 // ---- site-wide alert watcher: badge + sound + desktop notification for new red alerts ----
-let _seenAlerts = null;
+let _seenAlerts = null;  // alert id -> last seen version (updated_at or created_at)
 async function checkAlerts() {
   try {
-    const alerts = await api("/api/alerts?status=open&limit=30", { noRedirect: true });
+    const alerts = await api("/api/alerts?status=open&limit=50", { noRedirect: true });
     setNavAlerts(alerts.length);
-    const fresh = _seenAlerts ? alerts.filter(a => !_seenAlerts.has(a.id)) : [];
-    _seenAlerts = new Set(alerts.map(a => a.id).concat([...(_seenAlerts || [])]));
-    const red = fresh.filter(a => a.zone === "red");
-    if (red.length) {
+    const ver = a => a.updated_at || a.created_at;
+    const fresh = _seenAlerts ? alerts.filter(a => _seenAlerts.get(a.id) !== ver(a)) : [];
+    _seenAlerts = new Map([...(_seenAlerts || []), ...alerts.map(a => [a.id, ver(a)])]);
+    if (fresh.length) {
+      const top = fresh.find(a => a.zone === "red") || fresh[0];
+      const isNew = !top.updated_at;
       beep();
-      toast(`🔴 ${red[0].title}: ${red[0].patient_name}`, 6000);
+      toast(`${top.zone === "red" ? "🔴" : "🟡"} ${isNew ? top.title : "Bemordan yangi ma'lumot"}: ${top.patient_name}`, 6000);
       if ("Notification" in window && Notification.permission === "granted") {
-        const n = new Notification("PeriZone — qizil xabarnoma", { body: `${red[0].patient_name}: ${red[0].title}`, tag: "pz-" + red[0].id });
-        n.onclick = () => { window.focus(); location.href = `/patient.html?id=${red[0].patient_id}`; };
+        const n = new Notification(`PeriZone — ${isNew ? "yangi xabarnoma" : "yangi ma'lumot"}`, { body: `${top.patient_name}: ${top.message.split(String.fromCharCode(10))[0]}`, tag: "pz-" + top.id + ver(top) });
+        n.onclick = () => { window.focus(); location.href = `/patient.html?id=${top.patient_id}`; };
       }
       document.dispatchEvent(new CustomEvent("pz:new-alerts", { detail: fresh }));
     }

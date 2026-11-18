@@ -92,7 +92,7 @@ def alert_dict(a: models.Alert, with_events: bool = False) -> dict:
         "kind": a.kind, "zone": a.zone, "title": a.title, "message": a.message, "level": a.level,
         "status": a.status, "created_at": iso(a.created_at), "acknowledged_by": a.acknowledged_by,
         "acknowledged_at": iso(a.acknowledged_at), "resolved_at": iso(a.resolved_at),
-        "next_escalation_at": iso(a.next_escalation_at),
+        "next_escalation_at": iso(a.next_escalation_at), "updated_at": iso(a.updated_at),
     }
     if with_events:
         d["events"] = [{"at": iso(e.at), "type": e.type, "actor": e.actor, "detail": e.detail} for e in a.events]

@@ -97,6 +97,15 @@ def _maybe_alert(db, patient, assessment, prev_zone, findings, trigger, now, not
     worsened = prev_zone is not None and ZONE_RANK[assessment.zone] > ZONE_RANK[prev_zone]
     first_time_bad = prev_zone is None and assessment.zone != "green" and trigger is not None
     if not (worsened or first_time_bad or new_red_from_trigger):
+        # Zone unchanged, but the woman herself reported complaints (e.g. fever again): the doctor
+        # must still see it — attach to her open alert (re-notify) or open a new one.
+        if trigger is not None and trigger.source == "self" and assessment.zone != "green":
+            own = [f for f in get_rules(patient.kind).evaluate({"risk_factors": []}, [trigger], now).findings
+                   if f.zone in ("yellow", "red")]
+            if own:
+                from .alerts import report_from_patient
+                msg = "\n".join(f"• {f.label} (o‘zi kiritgan)" for f in own[:6])
+                report_from_patient(db, patient, msg, zone=assessment.zone, now=now, notify=notify)
         return
 
     active = [f for f in findings if f.zone == assessment.zone and f.category != "risk_factor"] or \

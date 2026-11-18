@@ -64,15 +64,7 @@ def create_alert(db: Session, patient: models.Patient, *, kind: str, zone: str, 
             )
         )
         if existing:
-            existing.message = message
-            if zone == "red" and existing.zone != "red":
-                existing.zone, existing.title = "red", title
-                log_event(db, existing, "updated", detail="Zona QIZILga ko'tarildi\n" + message, at=now)
-                if notify:
-                    dispatch(db, existing, now)
-            else:
-                log_event(db, existing, "updated", detail=message, at=now)
-            return existing
+            return update_alert(db, existing, message, zone=zone, title=title, now=now, notify=notify)
 
     delay = _escalation_delay(0)
     alert = models.Alert(
@@ -87,6 +79,44 @@ def create_alert(db: Session, patient: models.Patient, *, kind: str, zone: str, 
     if notify:
         dispatch(db, alert, now)
     return alert
+
+
+def update_alert(db: Session, alert: models.Alert, message: str, *, zone: str | None = None,
+                 title: str | None = None, now: datetime | None = None, notify: bool = True) -> models.Alert:
+    """New information for an alert that is still open: show it again to the doctor.
+
+    The alert is re-opened (if it was only acknowledged), moved to the top of the feed (updated_at)
+    and the doctor is notified again — so a new message from the patient is never silently absorbed.
+    """
+    now = now or utcnow()
+    raised = zone == "red" and alert.zone != "red"
+    if raised:
+        alert.zone = "red"
+        if title:
+            alert.title = title
+        delay = _escalation_delay(0)
+        alert.next_escalation_at = now + delay if delay else None
+    alert.message = message
+    alert.updated_at = now
+    if alert.status == "acknowledged":
+        alert.status = "open"  # needs a fresh look
+    prefix = "Zona QIZILga ko'tarildi" if raised else "Yangi ma'lumot"
+    log_event(db, alert, "updated", detail=f"{prefix}\n{message}", at=now)
+    if notify:
+        dispatch(db, alert, now)
+    return alert
+
+
+def report_from_patient(db: Session, patient: models.Patient, message: str, zone: str,
+                        now: datetime | None = None, notify: bool = True) -> models.Alert:
+    """A self-report with complaints that didn't change the zone: attach to the open alert or open one."""
+    existing = db.scalar(select(models.Alert).where(
+        models.Alert.patient_id == patient.id, models.Alert.status != "resolved",
+        models.Alert.kind != "missed_checkin").order_by(models.Alert.created_at.desc()))
+    if existing:
+        return update_alert(db, existing, message, now=now, notify=notify)
+    return create_alert(db, patient, kind="self_report", zone=zone, title="Bemordan yangi shikoyat",
+                        message=message, now=now, notify=notify)
 
 
 def acknowledge(db: Session, alert: models.Alert, actor: str) -> models.Alert:

@@ -161,3 +161,31 @@ def test_meds_recorded(sent):
     msg(bot.BTN_MEDS)
     cb("meds:1")
     assert db_query(lambda db: db.query(models.Observation).one().meds_taken) is True
+
+
+def test_repeated_complaint_reaches_doctor_again(sent):
+    """Bug report: 2nd Telegram message (fever again) was silently absorbed into the open alert."""
+    join()
+    msg(bot.BTN_REPORT); cb("sym:fever"); cb("sym:swelling_face_hands"); cb("sym_send")
+    a = db_query(lambda db: db.query(models.Alert).one())
+    assert a.zone == "yellow" and a.status == "open"
+    db = SessionLocal(); al = db.get(models.Alert, a.id); al.status = "acknowledged"; db.commit(); db.close()
+    msg(bot.BTN_REPORT); cb("sym:fever"); cb("sym_send")          # same zone, new complaint
+    a2 = db_query(lambda db: db.query(models.Alert).one())
+    assert a2.status == "open" and a2.updated_at is not None       # back on the doctor's list, re-notified
+    notified = db_query(lambda db: db.query(models.AlertEvent).filter_by(alert_id=a.id, type="notified").count())
+    assert notified == 2
+
+
+def test_self_complaint_on_yellow_patient_without_open_alert_opens_one(sent):
+    join()
+    db = SessionLocal()
+    m = db.query(models.Patient).filter_by(kind="mother").one(); m.risk_factors = ["multiple_pregnancy"]  # yellow floor
+    from backend.app.services.assessment import reassess
+    reassess(db, m, notify=False)                                  # already yellow, as after a doctor's edit
+    db.query(models.Alert).delete(); db.commit(); db.close()
+    msg(bot.BTN_TEMP); msg("36.6")                                 # yellow (floor) but nothing new -> no alert
+    assert db_query(lambda db: db.query(models.Alert).count()) == 0
+    msg(bot.BTN_REPORT); cb("sym:painful_urination"); cb("sym_send")
+    a = db_query(lambda db: db.query(models.Alert).one())
+    assert a.kind in ("self_report", "zone_worsened")

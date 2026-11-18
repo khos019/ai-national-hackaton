@@ -191,6 +191,7 @@ class Alert(Base):
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
     next_escalation_at: Mapped[datetime | None] = mapped_column(DateTime)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime)  # last new information from the patient
 
     patient: Mapped[Patient] = relationship()
     events: Mapped[list[AlertEvent]] = relationship(
