@@ -64,6 +64,12 @@
       <label class="field">Necha haftada tug'ilgan<input name="gestational_age_at_birth" type="number" min="22" max="44" placeholder="39"></label>
       <label class="field">Apgar (5-daqiqa)<input name="apgar5" type="number" min="0" max="10" placeholder="8"></label>
     </div>
+    <div class="card" style="padding:16px;background:var(--surface-2);box-shadow:none">
+      <div class="row" style="margin-bottom:4px"><span class="bubble red" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center" id="baseIc"></span>
+        <div><b>Boshlang'ich ko'rik natijalari</b> <span class="badge bad">majburiy</span>
+        <div class="tiny muted">Birinchi klinik o'lchov sifatida saqlanadi — bemorning zonasi shu zahoti aniqlanadi</div></div></div>
+      <div class="form-grid" id="baseline" style="margin-top:10px"></div>
+    </div>
     <div><div class="small" style="font-weight:600;margin-bottom:8px">Anamnez xavf omillari <span class="muted" style="font-weight:400">— yosh, kam vazn va chala tug'ilish avtomatik hisoblanadi</span></div><div class="checks" id="rf"></div></div>
     <label class="check" style="border-color:var(--primary)"><input type="checkbox" name="consent" required>
       <span>Bemor shaxsiy va tibbiy ma'lumotlarini qayta ishlash hamda Telegram orqali kuzatuvga <b>roziligini berdi</b></span></label>
@@ -92,7 +98,7 @@ let meta, me, kind = "mother";
 const $ = id => document.getElementById(id);
 $("newBtn").innerHTML = icon("plus") + "Yangi bemor";
 document.querySelector(".search").insertAdjacentHTML("afterbegin", icon("search", "sm"));
-$("dlgIcon").innerHTML = icon("plus"); $("doneIcon").innerHTML = icon("check");
+$("dlgIcon").innerHTML = icon("plus"); $("baseIc").innerHTML = icon("activity", "sm"); $("doneIcon").innerHTML = icon("check");
 $("copyLink").innerHTML = icon("copy", "sm") + "Nusxa";
 
 async function load() {
@@ -130,7 +136,23 @@ function syncMother() {
   if (linked && !document.querySelector('#form [name="full_name"]').value && m.full_name.split(" ")[1])
     document.querySelector('#form [name="full_name"]').placeholder = "Masalan: Ali " + m.full_name.split(" ")[1].replace(/a$/, "");
 }
+// [field, label, unit/hint, required, min, max, step]
+const BASELINE = {
+  mother: [["sbp", "Sistolik bosim", "mmHg", true, 60, 260], ["dbp", "Diastolik bosim", "mmHg", true, 30, 180],
+           ["hemoglobin", "Gemoglobin", "g/L", true, 30, 200], ["weight", "Vazn", "kg", true, 30, 200, 0.1],
+           ["temperature", "Harorat", "°C", true, 34, 42, 0.1], ["heart_rate", "Puls", "/daq", false, 30, 220],
+           ["glucose", "Qand (och qoringa)", "mmol/L", false, 1, 30, 0.1]],
+  newborn: [["weight", "Hozirgi vazn", "kg", true, 0.5, 8, 0.01], ["temperature", "Harorat", "°C", true, 33, 42, 0.1],
+            ["resp_rate", "Nafas soni", "/daq", false, 10, 120], ["heart_rate", "Puls", "/daq", false, 60, 240],
+            ["spo2", "SpO2", "%", false, 70, 100]],
+};
+function renderBaseline() {
+  $("baseline").innerHTML = BASELINE[kind].map(([f, l, u, req, mn, mx, st]) =>
+    `<label class="field">${l} <span class="hint">${u}${req ? "" : " · ixtiyoriy"}</span><input name="b_${f}" type="number" inputmode="decimal" ${req ? "required" : ""} min="${mn}" max="${mx}" step="${st || 1}"></label>`).join("")
+    + (kind === "mother" ? `<label class="field">Siydikda oqsil <span class="hint">ixtiyoriy</span><select name="b_proteinuria"><option value="">—</option><option value="0">manfiy</option><option value="1">iz</option><option value="2">1+</option><option value="3">2+</option><option value="4">3+</option></select></label>` : "");
+}
 function renderForm() {
+  renderBaseline();
   $("rf").innerHTML = Object.entries(meta[kind].risk_factors).filter(([, s]) => !s.auto)
     .map(([c, s]) => `<label class="check"><input type="checkbox" name="rf" value="${c}">${esc(s.label)}</label>`).join("");
   $("motherFields").classList.toggle("hidden", kind !== "mother");
@@ -158,10 +180,11 @@ $("form").addEventListener("submit", async e => {
   if (e.submitter?.value !== "save") return;
   e.preventDefault();
   const f = new FormData(e.target);
-  const body = { kind, risk_factors: f.getAll("rf"), consent: f.get("consent") === "on" };
+  const body = { kind, risk_factors: f.getAll("rf"), consent: f.get("consent") === "on", initial: {} };
   const nums = ["doctor_id", "parity", "birth_weight_g", "gestational_age_at_birth", "apgar5"];  // mother_id handled below
   for (const [k, v] of f.entries()) {
     if (["rf", "consent", "weeks"].includes(k) || v === "") continue;
+    if (k.startsWith("b_")) { body.initial[k.slice(2)] = Number(v); continue; }
     body[k] = nums.includes(k) ? Number(v) : v;
   }
   if (kind === "mother" && !body.lmp_date && f.get("weeks")) {
@@ -176,7 +199,8 @@ $("form").addEventListener("submit", async e => {
     const p = await api("/api/patients", { method: "POST", body });
     $("dlg").close();
     $("doneTitle").textContent = `${p.full_name} ro'yxatga olindi`;
-    $("doneSub").innerHTML = `Zona: ${zoneChip(p.zone)} · Shifokor: ${esc(p.doctor || "")}`;
+    $("doneSub").innerHTML = `Boshlang'ich ko'rik bo'yicha zona: ${zoneChip(p.zone)} · Shifokor: ${esc(p.doctor || "")}`
+      + (p.top_reasons.length ? `<div class="tiny" style="margin-top:6px">${p.top_reasons.map(esc).join(" · ")}</div>` : "");
     const bot = meta.bot_username || "perizone_bot";
     $("botName").textContent = "@" + bot; $("donePhone").textContent = p.phone || "";
     $("botLink").textContent = `https://t.me/${bot}`;

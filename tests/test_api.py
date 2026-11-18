@@ -43,7 +43,8 @@ def login(phone: str) -> TestClient:
 
 def register(c, **kw):
     body = {"kind": "mother", "full_name": "Test Ona", "birth_date": "1998-05-01", "phone": "+998 90 111 22 33",
-            "lmp_date": str((utcnow() - timedelta(weeks=30)).date()), "consent": True, **kw}
+            "lmp_date": str((utcnow() - timedelta(weeks=30)).date()), "consent": True,
+            "initial": {"sbp": 112, "dbp": 72, "hemoglobin": 120, "weight": 64, "temperature": 36.6}, **kw}
     r = c.post("/api/patients", json=body)
     assert r.status_code == 201, r.text
     return r.json()
@@ -93,7 +94,8 @@ def test_consent_and_duplicate_phone(db_setup):
     r = a.post("/api/patients", json={"kind": "mother", "full_name": "Rozisiz", "phone": "+998901112299", "consent": False})
     assert r.status_code == 400
     register(a)
-    r = a.post("/api/patients", json={"kind": "mother", "full_name": "Dublikat", "phone": "901112233", "consent": True})
+    r = a.post("/api/patients", json={"kind": "mother", "full_name": "Dublikat", "phone": "901112233", "consent": True,
+                                      "initial": {"sbp": 110, "dbp": 70, "hemoglobin": 120, "weight": 60, "temperature": 36.6}})
     assert r.status_code == 409
 
 
@@ -175,7 +177,8 @@ def test_newborn_registered_separately_and_linked_to_mother(db_setup):
     mom = register(a, risk_factors=["gestational_diabetes"])
     r = a.post("/api/patients", json={"kind": "newborn", "full_name": "Chaqaloq Test", "birth_date": str(utcnow().date()),
                                       "mother_id": mom["id"], "birth_weight_g": 3100, "gestational_age_at_birth": 39,
-                                      "apgar5": 9, "consent": True, "delivery": "cesarean"})
+                                      "apgar5": 9, "consent": True, "delivery": "cesarean",
+                                      "initial": {"weight": 3.1, "temperature": 36.8}})
     assert r.status_code == 201, r.text
     baby = a.get(f"/api/patients/{r.json()['id']}").json()
     assert baby["phone"] == mom["phone"] and baby["mother"]["id"] == mom["id"]
@@ -187,3 +190,14 @@ def test_newborn_registered_separately_and_linked_to_mother(db_setup):
     # another doctor cannot attach a baby to someone else's patient
     r = b.post("/api/patients", json={"kind": "newborn", "full_name": "Boshqa Chaqaloq", "mother_id": mom["id"], "consent": True})
     assert r.status_code == 400
+
+
+def test_registration_requires_baseline_exam_and_sets_zone(db_setup):
+    a = login(DOC_A)
+    r = a.post("/api/patients", json={"kind": "mother", "full_name": "Ko'riksiz Ona", "phone": "+998901119999", "consent": True})
+    assert r.status_code == 400 and "gemoglobin" in r.json()["detail"]
+    p = register(a, phone="+998901118888", initial={"sbp": 165, "dbp": 112, "hemoglobin": 95, "weight": 70, "temperature": 36.7})
+    assert p["zone"] == "red"                                    # zone from the first exam
+    obs = a.get(f"/api/patients/{p['id']}").json()["observations"]
+    assert len(obs) == 1 and obs[0]["source"] == "clinic" and obs[0]["hemoglobin"] == 95
+    assert a.get("/api/alerts?status=active").json()[0]["patient_id"] == p["id"]

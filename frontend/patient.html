@@ -138,8 +138,9 @@ function render() {
       <div class="card"><div class="card-h"><h2>Nima uchun ${ZONE_UZ[p.zone].toLowerCase()} zona?</h2><span class="sub">tizim topgan sabablar va ularning manbasi</span></div>
         <div class="card-b">${reasonsHTML(p.reasons)}</div></div>
       <div class="grid cols-2-even">
-        <div class="card"><div class="card-h"><h2>${isM ? "Qon bosimi" : "Harorat va nafas"}</h2><span class="sub">▲ — bemor o'zi kiritgan</span></div><div class="card-b"><div class="chart-box"><canvas id="c1"></canvas></div></div></div>
-        <div class="card"><div class="card-h"><h2>${isM ? "Gemoglobin va glyukoza" : "Vazn"}</h2></div><div class="card-b"><div class="chart-box"><canvas id="c2"></canvas></div></div></div>
+        ${(isM ? [["c1", "Qon bosimi", "▲ — bemor o'zi kiritgan"], ["c2", "Gemoglobin va glyukoza", ""], ["c3", "Vazn", "kg"], ["c4", "Harorat", "°C"]]
+               : [["c1", "Harorat", "°C"], ["c2", "Vazn", "kg"], ["c3", "Nafas va puls", "daqiqasiga"]]).map(([id, t, s]) =>
+          `<div class="card"><div class="card-h"><h2>${t}</h2><span class="sub">${s}</span></div><div class="card-b"><div class="chart-box"><canvas id="${id}"></canvas></div></div></div>`).join("")}
       </div>
       <div class="card"><div class="card-h">${icon("bot")}<h2>AI yordamchi suhbati</h2><span class="sub">bemor Telegram'da yozgan va AI ajratib olgan ma'lumotlar</span></div>
         <div class="chat" id="chat">${chatHTML(p.ai_messages)}</div></div>
@@ -248,22 +249,33 @@ function drawCharts() {
   const grid = cssVar("--border"), txt = cssVar("--muted");
   const ds = (label, key, color, y = "y") => { const d = pts(key); return { label, data: d, yAxisID: y, borderColor: color, backgroundColor: color, tension: .3, borderWidth: 2.2,
     pointRadius: d.map(p => p.self ? 4.5 : 3), pointStyle: d.map(p => p.self ? "triangle" : "circle") }; };
+  // x range: pad a few days so a single measurement doesn't produce a meaningless axis
+  const times = obs.map(o => parseUTC(o.recorded_at).getTime());
+  const DAY = 86400000, xmin = Math.min(...times), xmax = Math.max(...times);
+  const xr = xmax - xmin < 2 * DAY ? { min: xmin - 3 * DAY, max: xmax + 3 * DAY } : {};
   const opts = (yTitle, lines = [], y2) => ({
     responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
     plugins: { legend: { labels: { color: txt, boxWidth: 10, usePointStyle: true } }, tooltip: { callbacks: { title: i => fmtDate(new Date(i[0].parsed.x).toISOString()) } } },
     scales: {
-      x: { type: "linear", ticks: { color: txt, maxTicksLimit: 6, callback: v => { const d = new Date(v); return `${d.getDate()}.${d.getMonth() + 1}`; } }, grid: { color: grid } },
+      x: { type: "linear", ...xr, ticks: { color: txt, maxTicksLimit: 6, stepSize: xr.min ? DAY : undefined, callback: v => { const d = new Date(v); return `${d.getDate()}.${d.getMonth() + 1}`; } }, grid: { color: grid } },
       y: { title: { display: true, text: yTitle, color: txt }, ticks: { color: txt }, grid: { color: c => lines.includes(c.tick.value) ? cssVar("--red") : grid } },
       ...(y2 ? { y2: { position: "right", title: { display: true, text: y2, color: txt }, ticks: { color: txt }, grid: { display: false } } } : {}),
     },
   });
-  const mk = (id, datasets, o) => charts.push(new Chart(document.getElementById(id), { type: "line", data: { datasets }, options: o }));
+  const mk = (id, datasets, o) => {
+    const el = document.getElementById(id);
+    if (!datasets.some(d => d.data.length)) { el.parentElement.innerHTML = emptyState("Hali ma'lumot yo'q", "chart"); return; }
+    charts.push(new Chart(el, { type: "line", data: { datasets }, options: o }));
+  };
   if (P.kind === "mother") {
     mk("c1", [ds("Sistolik", "sbp", cssVar("--red")), ds("Diastolik", "dbp", cssVar("--primary"))], opts("mmHg", [140, 160, 90, 110]));
     mk("c2", [ds("Gemoglobin", "hemoglobin", cssVar("--green")), ds("Glyukoza", "glucose", cssVar("--yellow"), "y2")], opts("g/L", [100, 70], "mmol/L"));
+    mk("c3", [ds("Vazn (kg)", "weight", cssVar("--primary"))], opts("kg"));
+    mk("c4", [ds("Harorat", "temperature", cssVar("--red"))], opts("°C", [38, 38.5]));
   } else {
-    mk("c1", [ds("Harorat", "temperature", cssVar("--red")), ds("Nafas", "resp_rate", cssVar("--primary"), "y2")], opts("°C", [], "/daq"));
+    mk("c1", [ds("Harorat", "temperature", cssVar("--red"))], opts("°C", [36.5, 37.5]));
     mk("c2", [ds("Vazn (kg)", "weight", cssVar("--green"))], opts("kg"));
+    mk("c3", [ds("Nafas", "resp_rate", cssVar("--primary")), ds("Puls", "heart_rate", cssVar("--yellow"), "y2")], opts("nafas/daq", [60], "puls/daq"));
   }
 }
 

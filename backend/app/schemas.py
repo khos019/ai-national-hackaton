@@ -60,6 +60,8 @@ class PatientIn(BaseModel):
     consent: bool = False
     # newborn registered from the mother's visit: how she delivered (marks the mother as postpartum)
     delivery: str | None = Field(None, pattern="^(normal_delivery|cesarean|preterm_birth)$")
+    # Baseline exam entered by the doctor at registration (saved as the first clinic observation)
+    initial: Vitals | None = None
 
 
 class PatientPatch(BaseModel):

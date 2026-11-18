@@ -219,12 +219,22 @@ def create_patient(body: schemas.PatientIn, db: Session = Depends(get_db), staff
 
 
 MATERNAL_DIABETES = {"diabetes", "gestational_diabetes"}
+# Baseline exam required before a patient can be registered (field -> label)
+REQUIRED_BASELINE = {
+    "mother": {"sbp": "sistolik bosim", "dbp": "diastolik bosim", "hemoglobin": "gemoglobin", "weight": "vazn",
+               "temperature": "harorat"},
+    "newborn": {"weight": "hozirgi vazn", "temperature": "harorat"},
+}
 
 
 def register_patient(db: Session, staff: Staff, body: schemas.PatientIn) -> dict:
     """Shared by the website and the doctor's Telegram wizard."""
     if not body.consent:
         raise HTTPException(400, "Bemorning ma'lumotlarni qayta ishlashga roziligi kerak")
+    initial = body.initial.model_dump() if body.initial else {}
+    missing = [label for f, label in REQUIRED_BASELINE[body.kind].items() if initial.get(f) is None]
+    if missing:
+        raise HTTPException(400, "Avval boshlang'ich ko'rik natijalarini kiriting: " + ", ".join(missing))
     mother = None
     if body.kind == "newborn" and body.mother_id:
         mother = db.get(models.Patient, body.mother_id)
@@ -251,11 +261,12 @@ def register_patient(db: Session, staff: Staff, body: schemas.PatientIn) -> dict
                                                              models.Patient.active.is_(True))):
             if normalize_phone(other.phone) == key:
                 raise HTTPException(409, f"Bu raqam bilan homilador ayol allaqachon ro'yxatda (ID {other.id})")
-    data = body.model_dump(exclude={"doctor_id", "district_id", "delivery"})
+    data = body.model_dump(exclude={"doctor_id", "district_id", "delivery", "initial"})
     p = models.Patient(**data, doctor_id=doctor.id, district_id=doctor.district_id or body.district_id)
     db.add(p)
     db.flush()
-    reassess(db, p, notify=False)
+    initial["note"] = initial.get("note") or "Ro'yxatga olishdagi boshlang'ich ko'rik"
+    add_observation(db, p, initial, source="clinic", entered_by=staff.full_name)  # zone from day one
     db.commit()
     return patient_summary(p)
 
