@@ -24,7 +24,7 @@ import yaml
 ZONES = ("green", "yellow", "red")
 ZONE_RANK = {z: i for i, z in enumerate(ZONES)}
 PARAMS = ("sbp", "dbp", "heart_rate", "resp_rate", "temperature", "spo2",
-          "glucose", "hemoglobin", "proteinuria", "weight")
+          "glucose", "hemoglobin", "proteinuria", "weight", "fetal_movements")
 SYMPTOM_WINDOW_HOURS = 72
 SOURCE_LABELS = {"self": "o'zi kiritgan", "clinic": "klinika", "lab": "laboratoriya", "device": "qurilma"}
 
@@ -187,12 +187,19 @@ class RuleSet:
             )
             if ok and combo.get("any_symptom"):
                 ok = any(s in symptoms for s in combo["any_symptom"])
+            if ok and combo.get("all_symptoms"):
+                ok = all(s in symptoms for s in combo["all_symptoms"])
             if ok:
-                srcs = {latest[c["param"]]["source"] for c in combo.get("params", [])}
+                if combo.get("params"):
+                    srcs = {latest[c["param"]]["source"] for c in combo["params"]}
+                    category = "combo"
+                else:  # symptom-only combination = a danger sign in its own right
+                    srcs = {symptoms[s]["source"] for s in combo.get("all_symptoms", []) if s in symptoms}
+                    category = "symptom"
                 # Only "self" if every value behind the combo was self-reported.
                 verified = sorted(srcs - {"self"})
                 findings.append(Finding(
-                    code=f"combo:{combo['code']}", category="combo", zone=combo["zone"], label=combo["label"],
+                    code=f"combo:{combo['code']}", category=category, zone=combo["zone"], label=combo["label"],
                     source=verified[0] if verified else ("self" if srcs else None),
                 ))
 

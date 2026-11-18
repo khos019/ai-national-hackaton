@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone — Hisobni faollashtirish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div class="center-page">
+  <div class="card auth-card" style="width:min(460px,100%)">
+    <div class="brand" style="padding:0 0 18px"><span class="dots"><i style="background:var(--red)"></i><i style="background:var(--yellow)"></i><i style="background:var(--green)"></i></span>
+      <div>PeriZone<small>Hisobni faollashtirish</small></div></div>
+    <h1 style="font-size:22px">Xush kelibsiz! 👋</h1>
+    <p class="muted" style="margin:6px 0 20px">Administrator sizga bergan <b>taklif kodini</b> kiriting va o'zingizga parol o'ylab toping. Kod bir martalik.</p>
+    <form id="form" class="grid" style="gap:14px">
+      <label class="field">Taklif kodi<input id="code" placeholder="DRXXXXXX" required style="text-transform:uppercase;letter-spacing:.15em;font-weight:700"></label>
+      <label class="field">Telefon raqamingiz <span class="hint">administrator kiritgan raqam</span><input id="phone" inputmode="tel" placeholder="+998 90 123 45 67" required></label>
+      <label class="field">Yangi parol <span class="hint">kamida 8 belgi</span><input id="password" type="password" minlength="8" autocomplete="new-password" required></label>
+      <label class="field">Parolni takrorlang<input id="password2" type="password" minlength="8" autocomplete="new-password" required></label>
+      <button class="btn primary block lg" id="btn">Faollashtirish va kirish</button>
+    </form>
+    <p class="small muted" style="margin:16px 0 0;text-align:center">Hisobingiz faolmi? <a href="/login.html">Kirish →</a></p>
+  </div>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const code = new URLSearchParams(location.search).get("code");
+if (code) { $("code").value = code; $("phone").focus(); }
+$("form").onsubmit = async e => {
+  e.preventDefault();
+  if ($("password").value !== $("password2").value) { toast("Parollar mos kelmadi"); return; }
+  $("btn").disabled = true;
+  try {
+    await api("/api/auth/activate", { method: "POST", body: { code: $("code").value.trim().toUpperCase(), phone: $("phone").value.trim(), password: $("password").value } });
+    toast("Hisob faollashtirildi!");
+    setTimeout(() => location.replace("/"), 600);
+  } catch (err) { toast(err.message, 5000); }
+  finally { $("btn").disabled = false; }
+};
+</script>
+</body>
+</html>

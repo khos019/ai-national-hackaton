@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone — Kirish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  .split { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; }
+  .hero { background: linear-gradient(150deg, #1e3a8a 0%, #3b5bdb 55%, #5b7cfa 100%); color: #fff; padding: 56px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; width: 520px; height: 520px; border-radius: 50%; right: -160px; bottom: -200px; background: rgba(255,255,255,.07); }
+  .hero h2 { color: #fff; font-size: 34px; line-height: 1.15; letter-spacing: -.02em; max-width: 520px; }
+  .hero p { color: rgba(255,255,255,.82); font-size: 15.5px; max-width: 480px; margin-top: 14px; }
+  .hero .feats { display: grid; gap: 14px; margin-top: 36px; max-width: 460px; position: relative; z-index: 1; }
+  .hero .feat { display: flex; gap: 14px; align-items: flex-start; }
+  .hero .feat .ic { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+  .hero .feat b { display: block; font-size: 14.5px; } .hero .feat span { color: rgba(255,255,255,.75); font-size: 13px; }
+  .zones3 { display: flex; gap: 8px; } .zones3 i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .form-side { display: grid; place-items: center; padding: 32px 20px; background: var(--bg); }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } .hero { display: none; } }
+</style>
+</head>
+<body>
+<div class="split">
+  <section class="hero">
+    <div class="brand" style="color:#fff;padding:0"><span class="zones3"><i style="background:#ff6b6b"></i><i style="background:#fcc419"></i><i style="background:#51cf66"></i></span>
+      <div>PeriZone<small style="color:rgba(255,255,255,.7)">Perinatal yuqori xavf guruhi registri</small></div></div>
+    <div>
+      <h2>Har bir onaning holati — real vaqtda, rangli zonalarda.</h2>
+      <p>Tahlillar yomonlashganda tizim shifokorni darhol ogohlantiradi. Ayollar Telegram orqali holatini yuboradi, AI yordamchi ma'lumotni shifokorga yetkazadi.</p>
+      <div class="feats" id="feats"></div>
+    </div>
+    <div class="small" style="color:rgba(255,255,255,.6);position:relative;z-index:1">AI National Hackathon · 2026</div>
+  </section>
+
+  <section class="form-side">
+    <div class="card auth-card">
+      <h1 style="font-size:24px">Tizimga kirish</h1>
+      <p class="muted" style="margin:6px 0 22px">Shifokorlar va administratorlar uchun</p>
+      <form id="form" class="grid" style="gap:14px">
+        <label class="field">Telefon raqam<input id="phone" inputmode="tel" autocomplete="username" placeholder="+998 90 123 45 67" required autofocus></label>
+        <label class="field">Parol<input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
+        <button class="btn primary block lg" id="loginBtn">Kirish</button>
+      </form>
+      <div class="callout" style="margin-top:18px">
+        <div class="bubble blue" style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center" id="keyIc"></div>
+        <div class="txt small"><b>Birinchi marta kiryapsizmi?</b><br>Administrator bergan taklif kodi bilan hisobingizni faollashtiring.
+          <div style="margin-top:6px"><a href="/activate.html" class="btn sm">Hisobni faollashtirish →</a></div></div>
+      </div>
+      <p class="small muted" style="margin:18px 0 0;text-align:center">Homilador ayol yoki yosh onamisiz? <a href="/mother.html">Ona sahifasi →</a></p>
+    </div>
+  </section>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const next = new URLSearchParams(location.search).get("next") || "/";
+$("keyIc").innerHTML = icon("key", "sm");
+$("feats").innerHTML = [
+  ["activity", "Rang zonalari", "Qizil · Sariq · Yashil — har bir yangi o'lchovdan keyin avtomatik"],
+  ["bell", "Darhol xabarnoma", "Javob bo'lmasa — administratorga eskalatsiya"],
+  ["bot", "AI yordamchi", "Ayol o'z so'zlari bilan yozadi — ma'lumot shifokorga tushadi"],
+].map(([i, b, s]) => `<div class="feat"><div class="ic">${icon(i)}</div><div><b>${b}</b><span>${s}</span></div></div>`).join("");
+api("/api/me", { noRedirect: true }).then(() => location.replace(next)).catch(() => {});
+$("form").onsubmit = async e => {
+  e.preventDefault();
+  $("loginBtn").disabled = true;
+  try {
+    await api("/api/auth/login", { method: "POST", body: { phone: $("phone").value.trim(), password: $("password").value } });
+    location.replace(next);
+  } catch (err) { toast(err.message, 5000); $("password").select(); }
+  finally { $("loginBtn").disabled = false; }
+};
+</script>
+</body>
+</html>

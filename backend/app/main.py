@@ -19,6 +19,8 @@ from .services import notify
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("perizone")
+# httpx logs full request URLs at INFO — for Telegram that URL contains the bot token. Keep it out of logs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def _scheduler_tick() -> None:

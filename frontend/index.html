@@ -3,184 +3,235 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PeriZone Monitoring</title>
+<title>PeriZone — Bosh sahifa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-<div id="hdr"></div>
-<main class="grid">
-  <div class="card"><div class="hd">
-    <h2>Tuman bo'yicha real vaqt monitoringi</h2>
-    <div class="filters">
-      <select id="district"><option value="">Barcha tumanlar</option></select>
-      <label class="small muted" style="display:flex;gap:6px;align-items:center">Men:
-        <input id="actor" style="width:190px" placeholder="Ism (audit uchun)"></label>
-      <span id="tg" class="badge"></span>
-      <span class="small muted" id="updated"></span>
+<div class="app" id="app">
+<main class="main">
+  <div class="page-head">
+    <div class="titles"><h1 id="hello">Bosh sahifa</h1><div class="sub" id="subtitle"></div></div>
+    <div class="actions">
+      <select id="district" class="hidden" style="width:auto"><option value="">Barcha tumanlar</option></select>
+      <span class="badge" id="tgBadge"></span>
+      <span class="small faint" id="updated"></span>
     </div>
-  </div></div>
+  </div>
 
-  <div class="grid cols-kpi" id="kpis"></div>
+  <div class="grid kpis" id="kpis" style="margin-bottom:18px"></div>
 
-  <div class="grid cols-main">
-    <div class="grid">
+  <div class="grid cols-2">
+    <div class="grid" style="align-content:start">
       <div class="card">
-        <div class="hd"><h2>Diqqat talab qiluvchi bemorlar</h2>
-          <div class="filters">
-            <div class="seg" id="zoneSeg">
-              <button data-z="red" class="on">Qizil</button><button data-z="yellow">Sariq</button><button data-z="">Barchasi</button>
-            </div>
-            <div class="seg" id="kindSeg">
-              <button data-k="" class="on">Hammasi</button><button data-k="mother">Onalar</button><button data-k="newborn">Chaqaloqlar</button>
-            </div>
+        <div class="card-h"><h2>Bemorlar holati</h2><span class="sub" id="rowCount"></span><span class="spacer"></span>
+          <div class="tabs" id="zoneTabs">
+            <button data-z="red" class="on"><span class="dot red"></span>Qizil</button>
+            <button data-z="yellow"><span class="dot yellow"></span>Sariq</button>
+            <button data-z="green"><span class="dot green"></span>Yashil</button>
+            <button data-z="">Barchasi</button>
           </div>
+          <div class="tabs" id="kindTabs"><button data-k="" class="on">Hammasi</button><button data-k="mother">Onalar</button><button data-k="newborn">Chaqaloqlar</button></div>
         </div>
-        <div class="bd flush table-wrap"><table>
-          <thead><tr><th>Zona</th><th>Bemor</th><th>Muddat / yosh</th><th>Tuman</th><th>Asosiy sabablar</th><th>Oxirgi ma'lumot</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table></div>
+        <div class="card-b flush table-wrap" style="max-height:560px">
+          <table><thead><tr><th>Bemor</th><th>Zona</th><th>Asosiy sabab</th><th id="thDoctor" class="hidden">Shifokor</th><th>Oxirgi ma'lumot</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table>
+        </div>
       </div>
-      <div class="card"><div class="hd"><h2>Xarita</h2><span class="small muted">Rang — bemor zonasi</span></div><div id="map"></div></div>
+
+      <div class="card owner-only hidden">
+        <div class="card-h"><h2>Shifokorlar faoliyati</h2><span class="sub">bemorlar va javobsiz xabarnomalar</span><span class="spacer"></span><a class="btn sm" href="/doctors.html">Barchasi</a></div>
+        <div class="card-b flush table-wrap"><table><thead><tr><th>Shifokor</th><th>Bemorlar</th><th>Qizil / Sariq</th><th>Javobsiz</th></tr></thead><tbody id="docRows"></tbody></table></div>
+      </div>
+
+      <div class="card owner-only hidden"><div class="card-h"><h2>Xarita</h2><span class="sub">har bir nuqta — bemor, rangi — zonasi</span></div><div id="map"></div></div>
     </div>
 
     <div class="grid" style="align-content:start">
       <div class="card">
-        <div class="hd"><h2>Xabarnomalar</h2>
-          <div class="filters"><div class="seg" id="alertSeg"><button data-s="active" class="on">Faol</button><button data-s="">Barchasi</button></div></div>
-        </div>
-        <div class="alerts" id="alerts"></div>
+        <div class="card-h"><h2>Xabarnomalar</h2><span class="spacer"></span>
+          <div class="tabs" id="alertTabs"><button data-s="active" class="on">Faol</button><button data-s="">Tarix</button></div></div>
+        <div class="feed" id="alerts"></div>
       </div>
-      <div class="card"><div class="hd"><h2>Tumanlar kesimida</h2></div><div class="bd bars" id="bars"></div></div>
+
+      <div class="card doctor-only hidden">
+        <div class="card-h"><h2>Bugungi vazifalar</h2></div>
+        <div class="card-b" id="todo"></div>
+      </div>
+
+      <div class="card owner-only hidden"><div class="card-h"><h2>Tumanlar kesimida</h2></div><div class="card-b bars" id="bars"></div></div>
+
+      <div class="callout info"><div class="txt"><b>Ranglar nimani anglatadi?</b><br>
+        🔴 <b>Qizil</b> — shoshilinch, 1 soat ichida chora · 🟡 <b>Sariq</b> — 24 soat ichida bog'lanish · 🟢 <b>Yashil</b> — rejali kuzatuv.
+        <a href="/guide.html">Batafsil →</a></div></div>
     </div>
   </div>
 </main>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/assets/common.js"></script>
+<script src="/assets/app.js"></script>
 <script>
-document.getElementById("hdr").innerHTML = headerHTML("dash");
-const state = { district: "", zone: "red", kind: "", alertStatus: "active", seenAlerts: null, meta: null };
-const actorInput = document.getElementById("actor");
-actorInput.value = currentActor();
-actorInput.addEventListener("change", () => setActor(actorInput.value || "OvaBMU mutaxassisi"));
+const state = { zone: "red", kind: "", alertStatus: "active", district: "", seen: null, me: null, meta: null, patients: [] };
+let map, layer;
 
-function seg(id, key, attr) {
+function tabs(id, key, attr) {
   document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
-    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove("on"));
-    b.classList.add("on"); state[key] = b.dataset[attr]; refresh();
+    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle("on", x === b));
+    state[key] = b.dataset[attr]; key === "alertStatus" ? loadAlerts() : renderPatients();
+    if (key === "zone") markKpi();
   });
 }
-seg("zoneSeg", "zone", "z"); seg("kindSeg", "kind", "k"); seg("alertSeg", "alertStatus", "s");
-document.getElementById("district").onchange = e => { state.district = e.target.value; refresh(); fitMap(); };
-
-// ---- map
-const map = L.map("map", { scrollWheelZoom: false }).setView([41.30, 69.27], 11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
-const layer = L.layerGroup().addTo(map);
-function fitMap() {
-  const d = state.meta?.districts.find(x => String(x.id) === state.district);
-  if (d) map.setView([d.lat, d.lon], 13); else map.setView([41.30, 69.27], 11);
+function setZone(z) {
+  state.zone = z;
+  document.querySelectorAll("#zoneTabs button").forEach(b => b.classList.toggle("on", b.dataset.z === z));
+  markKpi(); renderPatients();
+  document.getElementById("rows").closest(".card").scrollIntoView({ behavior: "smooth", block: "start" });
 }
+function markKpi() { document.querySelectorAll("#kpis [data-zone]").forEach(k => k.classList.toggle("on", k.dataset.zone === state.zone)); }
 
-function kpi(cls, label, value, sub) {
-  return `<div class="card kpi ${cls}"><div class="label">${cls && cls !== "plain" ? `<span class="dot ${cls}"></span>` : ""}${label}</div>
-    <div class="value">${value}</div><div class="sub">${sub || ""}</div></div>`;
+function kpi(zone, ic, label, value, sub, bubble) {
+  return `<div class="card kpi" ${zone ? `data-zone="${zone}" title="Ro'yxatda ko'rsatish"` : ""}>
+    <div class="bubble ${bubble}">${icon(ic)}</div>
+    <div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div></div>`;
 }
 
 async function loadDashboard() {
   const q = state.district ? `?district_id=${state.district}` : "";
   const d = await api(`/api/dashboard${q}`);
-  const m = d.counts.mother, n = d.counts.newborn;
-  const total = m.red + m.yellow + m.green + n.red + n.yellow + n.green;
-  const ack = d.mean_ack_seconds == null ? "—" : d.mean_ack_seconds < 3600 ? `${Math.round(d.mean_ack_seconds / 60)} daq` : `${(d.mean_ack_seconds / 3600).toFixed(1)} soat`;
+  const m = d.counts.mother, n = d.counts.newborn, tot = z => m[z] + n[z];
+  const sub = z => `${m[z]} ona · ${n[z]} chaqaloq`;
   document.getElementById("kpis").innerHTML =
-    kpi("red", "Qizil zona", m.red + n.red, `${m.red} ona · ${n.red} chaqaloq`) +
-    kpi("yellow", "Sariq zona", m.yellow + n.yellow, `${m.yellow} ona · ${n.yellow} chaqaloq`) +
-    kpi("green", "Yashil zona", m.green + n.green, `${m.green} ona · ${n.green} chaqaloq`) +
-    kpi("plain", "Faol xabarnomalar", d.open_alerts, `${d.open_red_alerts} qizil · ${d.escalated_alerts} eskalatsiya`) +
-    kpi("plain", "O'rtacha javob vaqti", ack, `Jami registrda: ${total}`);
-  document.getElementById("bars").innerHTML = d.by_district.map(r => {
-    const t = r.red + r.yellow + r.green || 1;
-    return `<div class="row"><span>${esc(r.name)}</span><div class="bar">
-      <span class="r" style="width:${r.red / t * 100}%"></span><span class="y" style="width:${r.yellow / t * 100}%"></span><span class="g" style="width:${r.green / t * 100}%"></span></div>
-      <span class="small muted num">${r.red}/${t}</span></div>`;
-  }).join("") || `<div class="empty">Ma'lumot yo'q</div>`;
-  document.getElementById("updated").textContent = "Yangilandi: " + new Date().toLocaleTimeString();
+    kpi("red", "alert", "Qizil zona", tot("red"), sub("red"), "red") +
+    kpi("yellow", "activity", "Sariq zona", tot("yellow"), sub("yellow"), "yellow") +
+    kpi("green", "heart", "Yashil zona", tot("green"), sub("green"), "green") +
+    kpi(null, "bell", "Javob kutmoqda", d.open_alerts, `${d.open_red_alerts} qizil · ${d.escalated_alerts} eskalatsiya`, "blue");
+  document.querySelectorAll("#kpis [data-zone]").forEach(el => el.onclick = () => setZone(el.dataset.zone));
+  markKpi();
+    if (state.me.role === "owner") {
+    document.getElementById("bars").innerHTML = (d.by_district || []).map(r => {
+      const t = r.red + r.yellow + r.green || 1;
+      return `<div class="row2"><span>${esc(r.name)}</span><div class="bar"><span class="r" style="width:${r.red / t * 100}%"></span><span class="y" style="width:${r.yellow / t * 100}%"></span><span class="g" style="width:${r.green / t * 100}%"></span></div><span class="small muted num">${r.red} / ${t}</span></div>`;
+    }).join("") || emptyState("Ma'lumot yo'q", "map");
+    document.getElementById("docRows").innerHTML = (d.by_doctor || []).slice(0, 8).map(r => `<tr>
+      <td><div class="person">${avatar(r.full_name, "blue")}<div><div class="nm">${esc(r.full_name)}</div><div class="mt">${esc(r.position || "")} · ${esc(r.district || "")}</div></div></div></td>
+      <td class="num">${r.patients}</td><td class="num"><span class="dot red"></span> ${r.red} &nbsp; <span class="dot yellow"></span> ${r.yellow}</td>
+      <td>${r.open_alerts ? `<span class="badge bad">${r.open_alerts}</span>` : '<span class="badge ok">0</span>'}</td></tr>`).join("") || `<tr><td colspan="4">${emptyState("Shifokorlar hali qo'shilmagan", "doctor")}</td></tr>`;
+  }
+  document.getElementById("updated").textContent = "Yangilandi " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 async function loadPatients() {
   const params = new URLSearchParams();
   if (state.district) params.set("district_id", state.district);
-  if (state.kind) params.set("kind", state.kind);
-  const all = await api(`/api/patients?${params}`);
-  const list = state.zone ? all.filter(p => p.zone === state.zone) : all;
-  document.getElementById("rows").innerHTML = list.slice(0, 200).map(p => `
-    <tr onclick="location.href='/patient.html?id=${p.id}'">
-      <td>${zoneChip(p.zone)}</td>
-      <td><b>${esc(p.full_name)}</b><div class="small muted">${KIND_UZ[p.kind]} · ID ${p.id}</div></td>
-      <td class="num">${p.kind === "mother" ? (p.gestational_weeks != null ? p.gestational_weeks + " hafta" : "—") : (p.age_days + " kun")}</td>
-      <td>${esc(p.district)}</td>
-      <td class="small">${p.top_reasons.map(esc).join("<br>") || '<span class="muted">—</span>'}</td>
-      <td class="small muted">${ago(p.last_observation_at)}</td>
-    </tr>`).join("") || `<tr><td colspan="6" class="empty">Bu zonada bemor yo'q</td></tr>`;
+  state.patients = await api(`/api/patients?${params}`);
+  renderPatients();
+  renderTodo();
+  if (map) drawMap();
+}
 
-  layer.clearLayers();
-  const colors = { red: cssVar("--red"), yellow: cssVar("--yellow-dot"), green: cssVar("--green") };
-  for (const p of all) {
-    if (p.lat == null) continue;
-    L.circleMarker([p.lat, p.lon], { radius: p.zone === "red" ? 8 : 5, color: colors[p.zone], fillColor: colors[p.zone], fillOpacity: .75, weight: 1 })
-      .bindPopup(`<b>${esc(p.full_name)}</b><br>${ZONE_UZ[p.zone]} zona<br><a href="/patient.html?id=${p.id}">Kartani ochish</a>`)
-      .addTo(layer);
-  }
+function renderPatients() {
+  let list = state.patients;
+  if (state.kind) list = list.filter(p => p.kind === state.kind);
+  if (state.zone) list = list.filter(p => p.zone === state.zone);
+  const owner = state.me.role === "owner";
+  document.getElementById("rowCount").textContent = `${list.length} ta`;
+  document.getElementById("rows").innerHTML = list.map(p => `
+    <tr class="click" onclick="location.href='/patient.html?id=${p.id}'">
+      <td><div class="person">${avatar(p.full_name, p.zone)}<div><div class="nm">${esc(p.full_name)}</div><div class="mt">${patientMeta(p)}</div></div></div></td>
+      <td>${zoneChip(p.zone)}</td>
+      <td class="reasons-cell">${p.top_reasons.slice(0, 2).map(r => `<div title="${esc(r)}">${esc(r)}</div>`).join("") || '<span class="faint">Ko\'rsatkichlar me\'yorda</span>'}</td>
+      ${owner ? `<td class="small">${esc(p.doctor || "—")}</td>` : ""}
+      <td class="small muted">${ago(p.last_observation_at)}</td>
+    </tr>`).join("") || `<tr><td colspan="5">${emptyState(state.zone ? `${ZONE_UZ[state.zone]} zonada bemor yo'q` : "Bemorlar yo'q", state.zone === "red" ? "check" : "users")}</td></tr>`;
+}
+
+function renderTodo() {
+  if (state.me.role !== "doctor") return;
+  const days = { mother: state.meta.mother.checkin_days, newborn: state.meta.newborn.checkin_days };
+  const stale = state.patients.filter(p => {
+    const lim = days[p.kind]?.[p.zone]; const d = parseUTC(p.last_observation_at);
+    return lim && d && (Date.now() - d.getTime()) / 86400000 > lim;
+  });
+  const noTg = state.patients.filter(p => !p.telegram_linked);
+  const item = (cls, ic, title, list, hint) => `<div class="callout ${cls}" style="margin-bottom:10px"><div class="bubble ${cls === "yellow" ? "yellow" : "blue"}" style="width:32px;height:32px;border-radius:9px;display:grid;place-items:center">${icon(ic, "sm")}</div>
+    <div class="txt"><b>${title}</b><div class="small" style="margin-top:2px">${hint}</div>
+    ${list.length ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${list.slice(0, 6).map(p => `<a class="badge" href="/patient.html?id=${p.id}">${esc(p.full_name)}</a>`).join("")}${list.length > 6 ? `<span class="badge">+${list.length - 6}</span>` : ""}</div>` : ""}</div></div>`;
+  document.getElementById("todo").innerHTML =
+    (stale.length ? item("yellow", "clock", `${stale.length} ta bemordan ma'lumot kelmayapti`, stale, "Qo'ng'iroq qiling yoki patronaj rejalashtiring") : "") +
+    (noTg.length ? item("info", "telegram", `${noTg.length} ta bemor Telegram'ga ulanmagan`, noTg, `Ularga ayting: @${esc(state.meta.bot_username || "bot")} → Start → raqamni yuborish`) : "") ||
+    emptyState("Hammasi joyida — bugun qo'shimcha vazifa yo'q 👌");
 }
 
 function alertHTML(a, isNew) {
-  const levels = ["", "Bosh shifokorga eskalatsiya", "Viloyatga eskalatsiya"];
-  const status = a.status === "open" ? "" : a.status === "acknowledged" ? `<span class="badge">qabul qildi: ${esc(a.acknowledged_by)}</span>` : `<span class="badge">yopilgan</span>`;
+  const ic = a.kind === "missed_checkin" ? "clock" : a.kind === "danger_sign" ? "alert" : "activity";
+  const status = a.status === "acknowledged" ? `<span class="badge ok">${icon("check", "sm")} ${esc(a.acknowledged_by)}</span>` : a.status === "resolved" ? '<span class="badge">yopilgan</span>' : "";
   const acts = a.status === "resolved" ? "" : `<div class="acts">
-      ${a.status === "open" ? `<button class="sm primary" onclick="ack(${a.id})">✅ Qabul qildim</button>` : ""}
-      <button class="sm" onclick="act(${a.id},'called')">📞 Qo'ng'iroq</button>
-      <button class="sm" onclick="act(${a.id},'home_visit')">🏠 Patronaj</button>
-      <button class="sm" onclick="act(${a.id},'referred')">🏥 Perinatal markaz</button>
-      <button class="sm" onclick="act(${a.id},'verified_ok')">👌 Xavf yo'q</button></div>`;
-  return `<div class="alert ${a.zone} ${isNew ? "new" : ""}">
-    <div class="t"><span class="dot ${a.zone}"></span>${esc(a.title)} ${a.level ? `<span class="level">${levels[a.level]}</span>` : ""} ${status}</div>
-    <div class="small"><a href="/patient.html?id=${a.patient_id}">${esc(a.patient_name)}</a> · ${esc(a.district)} · ${ago(a.created_at)}</div>
-    <div class="m">${esc(a.message)}</div>${acts}</div>`;
+      ${a.status === "open" ? `<button class="btn sm primary" onclick="ack(${a.id})">${icon("check", "sm")} Qabul qildim</button>` : ""}
+      <button class="btn sm" onclick="act(${a.id},'called')">Qo'ng'iroq qildim</button>
+      <button class="btn sm" onclick="act(${a.id},'home_visit')">Patronaj</button>
+      <button class="btn sm" onclick="act(${a.id},'referred')">Perinatal markazga</button>
+      <button class="btn sm ghost" onclick="act(${a.id},'verified_ok')">Xavf yo'q</button></div>`;
+  return `<div class="alert-item ${a.zone} ${isNew ? "new" : ""}"><div class="ic">${icon(ic)}</div><div style="min-width:0">
+    <div class="t">${esc(a.title)} ${a.level ? '<span class="esc">Administratorga eskalatsiya</span>' : ""}</div>
+    <div class="small"><a href="/patient.html?id=${a.patient_id}"><b>${esc(a.patient_name)}</b></a> <span class="muted">· ${ago(a.created_at)}</span> ${status}</div>
+    <div class="m">${esc(a.message)}</div>${acts}</div></div>`;
 }
 
 async function loadAlerts() {
-  const params = new URLSearchParams({ limit: 60 });
+  const params = new URLSearchParams({ limit: 50 });
   if (state.alertStatus) params.set("status", state.alertStatus);
   if (state.district) params.set("district_id", state.district);
   const alerts = await api(`/api/alerts?${params}`);
-  const ids = new Set(alerts.map(a => a.id));
-  const fresh = state.seenAlerts ? alerts.filter(a => !state.seenAlerts.has(a.id)) : [];
-  if (fresh.some(a => a.zone === "red")) { beep(); toast("🔴 Yangi qizil xabarnoma: " + fresh[0].patient_name); }
-  document.getElementById("alerts").innerHTML = alerts.map(a => alertHTML(a, fresh.includes(a))).join("") || `<div class="empty">Faol xabarnoma yo'q 👌</div>`;
-  state.seenAlerts = new Set([...(state.seenAlerts || []), ...ids]);
+  const fresh = state.seen ? alerts.filter(a => !state.seen.has(a.id)) : [];  // sound/notification: app.js watcher
+  document.getElementById("alerts").innerHTML = alerts.map(a => alertHTML(a, fresh.includes(a))).join("") || emptyState("Faol xabarnoma yo'q");
+  state.seen = new Set([...(state.seen || []), ...alerts.map(a => a.id)]);
 }
+async function ack(id) { await api(`/api/alerts/${id}/ack`, { method: "POST" }); toast("Qabul qilindi"); refresh(); }
+async function act(id, action) { await api(`/api/alerts/${id}/action`, { method: "POST", body: { action } }); toast(state.meta.actions[action] || "Saqlandi"); refresh(); }
 
-async function ack(id) { await api(`/api/alerts/${id}/ack`, { method: "POST", body: { actor: currentActor() } }); toast("Qabul qilindi"); refresh(); }
-async function act(id, action) {
-  await api(`/api/alerts/${id}/action`, { method: "POST", body: { action, actor: currentActor() } });
-  toast(state.meta?.actions[action] || "Saqlandi"); refresh();
+function drawMap() {
+  layer.clearLayers();
+  const c = { red: cssVar("--red"), yellow: cssVar("--yellow"), green: cssVar("--green") };
+  for (const p of state.patients) {
+    if (p.lat == null) continue;
+    L.circleMarker([p.lat, p.lon], { radius: p.zone === "red" ? 8 : 5, color: c[p.zone], fillColor: c[p.zone], fillOpacity: .8, weight: 1 })
+      .bindPopup(`<b>${esc(p.full_name)}</b><br>${ZONE_UZ[p.zone]} zona · ${esc(p.doctor || "")}<br><a href="/patient.html?id=${p.id}">Kartani ochish →</a>`).addTo(layer);
+  }
 }
 
 async function refresh() {
-  try { await Promise.all([loadDashboard(), loadPatients(), loadAlerts()]); }
-  catch (e) { toast("Xatolik: " + e.message); }
+  try { await Promise.all([loadDashboard(), loadPatients(), loadAlerts()]); } catch (e) { toast("Xatolik: " + e.message); }
 }
 
 (async () => {
-  state.meta = await api("/api/meta");
-  const sel = document.getElementById("district");
-  state.meta.districts.forEach(d => sel.insertAdjacentHTML("beforeend", `<option value="${d.id}">${esc(d.name)}</option>`));
-  const tg = document.getElementById("tg");
-  tg.textContent = state.meta.telegram_enabled ? "Telegram: ulangan" : "Telegram: o'chiq (faqat panel)";
+  const { me, meta } = await boot("home");
+  state.me = me; state.meta = meta;
+  const h = new Date().getHours(), greet = h < 12 ? "Xayrli tong" : h < 18 ? "Xayrli kun" : "Xayrli kech";
+  document.getElementById("hello").textContent = `${greet}, ${me.full_name.split(" ")[0]}`;
+  document.getElementById("subtitle").textContent = me.role === "owner" ? "Barcha tumanlar va shifokorlar bo'yicha real vaqt monitoringi" : "Sizga biriktirilgan bemorlar holati — real vaqtda";
+  document.getElementById("tgBadge").innerHTML = meta.telegram_enabled ? `${icon("telegram", "sm")} Bemorlar boti ishlayapti` : "Telegram bot o'chiq";
+  document.getElementById("tgBadge").className = "badge " + (meta.telegram_enabled ? "ok" : "warn");
+  document.querySelectorAll(me.role === "owner" ? ".owner-only" : ".doctor-only").forEach(e => e.classList.remove("hidden"));
+  if (me.role === "owner") {
+    document.getElementById("thDoctor").classList.remove("hidden");
+    const sel = document.getElementById("district"); sel.classList.remove("hidden");
+    meta.districts.forEach(d => sel.insertAdjacentHTML("beforeend", `<option value="${d.id}">${esc(d.name)}</option>`));
+    sel.onchange = () => {
+      state.district = sel.value; refresh();
+      const d = meta.districts.find(x => String(x.id) === sel.value);
+      d ? map.setView([d.lat, d.lon], 13) : map.setView([41.30, 69.27], 11);
+    };
+    map = L.map("map", { scrollWheelZoom: false }).setView([41.30, 69.27], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
+    layer = L.layerGroup().addTo(map);
+  }
+  tabs("zoneTabs", "zone", "z"); tabs("kindTabs", "kind", "k"); tabs("alertTabs", "alertStatus", "s");
   await refresh();
-  setInterval(refresh, 5000);
+  setInterval(refresh, 8000);
 })();
 </script>
 </body>

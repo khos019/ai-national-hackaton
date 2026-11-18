@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone — Obunalar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .plans { grid-template-columns: 1fr; } }
+  .plan { padding: 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+  .plan.premium { background: linear-gradient(160deg, var(--primary-soft), var(--surface)); border-color: var(--primary); }
+  .plan .price { font-size: 24px; font-weight: 800; margin: 6px 0 10px; }
+  .plan ul { margin: 0; padding-left: 0; list-style: none; font-size: 13.5px; color: var(--text-2); }
+  .plan li { display: flex; gap: 8px; padding: 4px 0; }
+  .plan li svg { color: var(--green); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<main class="main">
+  <div class="page-head">
+    <div class="titles"><h1>Obunalar</h1><div class="sub">Ayollar uchun oylik Premium obuna — daromad va faollik</div></div>
+  </div>
+  <div class="grid kpis five" id="kpis" style="margin-bottom:18px"></div>
+
+  <div class="grid cols-2" style="margin-bottom:18px">
+    <div class="card"><div class="card-h"><h2>Tariflar</h2><span class="sub">xavfsizlik birinchi o'rinda</span></div>
+      <div class="card-b plans" id="plans"></div></div>
+    <div class="card"><div class="card-h"><h2>Faol obunalar tarkibi</h2></div><div class="card-b" id="mix"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Ayollar</h2><span class="sub" id="count"></span><span class="spacer"></span>
+      <div class="search" style="min-width:220px"><input id="q" placeholder="Ism bo'yicha qidirish…"></div>
+      <div class="tabs" id="planTabs"><button data-p="" class="on">Barchasi</button><button data-p="monthly">Premium</button><button data-p="trial">Sinov</button><button data-p="free">Bepul Premium</button><button data-p="none">Bepul tarif</button></div></div>
+    <div class="card-b flush table-wrap" style="max-height:640px"><table>
+      <thead><tr><th>Ayol</th><th>Tarif</th><th>Muddati</th><th>Oxirgi to'lov</th><th>Shifokor</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6"><div class="skeleton"></div></td></tr></tbody></table></div>
+  </div>
+</main>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+let data, plan = "";
+const $ = id => document.getElementById(id);
+const PROV = { click: "Click", payme: "Payme", demo: "Demo", owner: "Administrator", auto: "Avtomatik" };
+document.querySelector(".search").insertAdjacentHTML("afterbegin", icon("search", "sm"));
+
+function kpi(ic, bubble, label, value, sub) {
+  return `<div class="card kpi"><div class="bubble ${bubble}">${icon(ic)}</div><div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div></div>`;
+}
+function render() {
+  const s = data.summary, bp = s.by_plan;
+  $("kpis").innerHTML =
+    kpi("star", "yellow", "Faol Premium", bp.monthly, `${s.active_total} ta jami faol (sinov bilan)`) +
+    kpi("money", "green", "Oylik takroriy daromad", fmtMoneyShort(s.mrr), `${fmtMoney(s.price)} × ${bp.monthly}`) +
+    kpi("chart", "blue", "So'nggi 30 kun tushumi", fmtMoneyShort(s.revenue_30d), "barcha to'lovlar") +
+    kpi("sparkle", "blue", "Sinovdan Premiumga", s.trial_conversion == null ? "—" : Math.round(s.trial_conversion * 100) + "%", "konversiya") +
+    kpi("clock", "gray", "7 kunda tugaydi", s.expiring_7d, "eslatma yuborish kerak");
+  const li = t => `<li>${icon("check", "sm")}<span>${t}</span></li>`;
+  $("plans").innerHTML = `
+    <div class="plan"><div class="small muted" style="font-weight:600">BEPUL — HAR DOIM</div><div class="price">0 so'm</div><ul>
+      ${li("Xavf belgilari ro'yxati va shoshilinch maslahat (103)")}${li("Qon bosimi, homila harakati, harorat, vazn")}${li("Shifokorga avtomatik xabarnoma")}${li("Xavf belgisi erkin yozilsa ham aniqlanadi")}</ul></div>
+    <div class="plan premium"><div class="small" style="font-weight:700;color:var(--primary-text)">PREMIUM</div><div class="price">${fmtMoney(s.price)}<span class="small muted" style="font-weight:500"> / oy</span></div><ul>
+      ${li("🤖 AI yordamchi — o'z so'zlari bilan yozish va savol berish")}${li("📊 Haftalik shaxsiy hisobot")}${li("⏰ Eslatmalar")}${li(`🎁 Birinchi ${s.trial_days} kun bepul sinov`)}</ul></div>
+    <div class="callout" style="grid-column:1/-1"><div class="txt small"><b>Nega xavf belgilari bepul?</b> Pul to'lamagani uchun hech bir ayol himoyasiz qolmasligi kerak. Premium qulaylik va qo'shimcha xizmat beradi; kam ta'minlangan oilalarga administrator bepul Premium bera oladi.</div></div>`;
+  const tot = bp.monthly + bp.trial + bp.free || 1;
+  const seg = (n, color, label) => `<div class="row2" style="grid-template-columns:140px 1fr 56px"><span>${label}</span><div class="bar"><span style="width:${n / tot * 100}%;background:${color}"></span></div><span class="num small">${n}</span></div>`;
+  const mothers = data.rows.length;
+  $("mix").innerHTML = `<div class="bars">${seg(bp.monthly, "var(--primary)", "Premium (to'lagan)")}${seg(bp.trial, "var(--yellow)", "Sinov davri")}${seg(bp.free, "var(--green)", "Bepul Premium")}</div>
+    <div class="callout info" style="margin-top:14px"><div class="txt small">Ro'yxatdagi homilador ayollar: <b>${mothers}</b> · Premium qamrovi: <b>${Math.round(s.active_total / (mothers || 1) * 100)}%</b> · To'lov: Click / Payme (prototipda demo to'lov)</div></div>`;
+  rows();
+}
+function rows() {
+  const q = $("q").value.toLowerCase();
+  const list = data.rows.filter(r => (!plan || (plan === "none" ? !r.active : r.plan === plan)) && (!q || r.full_name.toLowerCase().includes(q)));
+  $("count").textContent = `${list.length} ta`;
+  const badge = r => !r.active ? '<span class="badge">Bepul tarif</span>' : r.plan === "monthly" ? `<span class="badge" style="background:var(--primary-soft);color:var(--primary-text)">${icon("star", "sm")} Premium</span>` : r.plan === "trial" ? '<span class="badge warn">Sinov</span>' : '<span class="badge ok">Bepul Premium</span>';
+  $("rows").innerHTML = list.map(r => `<tr>
+    <td><div class="person">${avatar(r.full_name, r.zone)}<div><a class="nm" href="/patient.html?id=${r.patient_id}">${esc(r.full_name)}</a><div class="mt">${esc(r.phone || "")} · ${r.telegram_linked ? "Telegram ✓" : "Telegram ulanmagan"}</div></div></div></td>
+    <td>${badge(r)}</td>
+    <td class="small">${r.active ? `${r.days_left} kun qoldi<div class="tiny faint">${fmtDate(r.expires_at, false)} gacha</div>` : (r.expired_at ? `<span class="faint">${fmtDate(r.expired_at, false)} da tugagan</span>` : '<span class="faint">—</span>')}</td>
+    <td class="small">${r.last_amount ? `${fmtMoney(r.last_amount)}<div class="tiny faint">${PROV[r.last_provider] || r.last_provider || ""}</div>` : '<span class="faint">—</span>'}</td>
+    <td class="small">${esc(r.doctor || "—")}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn sm ghost" onclick="act(${r.patient_id},'grant_free')" title="Kam ta'minlangan oilalar uchun">Bepul berish</button>
+      <button class="btn sm" onclick="act(${r.patient_id},'pay_month')">To'lovni qayd etish</button></td></tr>`).join("") || `<tr><td colspan="6">${emptyState("Topilmadi", "users")}</td></tr>`;
+}
+async function act(id, action) {
+  await api(`/api/patients/${id}/subscription`, { method: "POST", body: { action, months: action === "grant_free" ? 3 : 1 } });
+  toast(action === "grant_free" ? "3 oylik bepul Premium berildi" : "To'lov qayd etildi"); load();
+}
+async function load() { data = await api("/api/subscriptions"); render(); }
+document.querySelectorAll("#planTabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#planTabs button").forEach(x => x.classList.toggle("on", x === b)); plan = b.dataset.p; rows();
+});
+$("q").oninput = rows;
+(async () => { await boot("subs", { ownerOnly: true }); load(); })();
+</script>
+</body>
+</html>

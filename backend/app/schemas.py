@@ -16,6 +16,8 @@ class Vitals(BaseModel):
     hemoglobin: float | None = Field(None, ge=30, le=200)
     proteinuria: int | None = Field(None, ge=0, le=4)
     weight: float | None = Field(None, ge=0.3, le=250)
+    fetal_movements: float | None = Field(None, ge=0, le=200)
+    meds_taken: bool | None = None
     symptoms: list[str] = []
     note: str | None = None
 
@@ -43,7 +45,7 @@ class PatientIn(BaseModel):
     full_name: str = Field(min_length=3)
     birth_date: date | None = None
     phone: str | None = None
-    district_id: int
+    district_id: int | None = None  # defaults to the responsible doctor's district
     address: str | None = None
     lat: float | None = None
     lon: float | None = None
@@ -54,6 +56,10 @@ class PatientIn(BaseModel):
     gestational_age_at_birth: int | None = None
     apgar5: int | None = None
     risk_factors: list[str] = []
+    doctor_id: int | None = None  # owner may assign; a doctor always registers to themself
+    consent: bool = False
+    # newborn registered from the mother's visit: how she delivered (marks the mother as postpartum)
+    delivery: str | None = Field(None, pattern="^(normal_delivery|cesarean|preterm_birth)$")
 
 
 class PatientPatch(BaseModel):
@@ -62,6 +68,40 @@ class PatientPatch(BaseModel):
     risk_factors: list[str] | None = None
     outcome: str | None = None
     outcome_date: date | None = None
+    active: bool | None = None
+    lmp_date: date | None = None
+    doctor_id: int | None = None  # owner only: move patient to another doctor
+
+
+class LoginIn(BaseModel):
+    phone: str = Field(min_length=7)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class ActivateIn(BaseModel):
+    phone: str = Field(min_length=7)
+    code: str = Field(min_length=4, max_length=16)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class SubscriptionAction(BaseModel):
+    action: str = Field(pattern="^(grant_free|pay_month|cancel)$")
+    months: int = Field(1, ge=1, le=12)
+
+
+class StaffIn(BaseModel):
+    full_name: str = Field(min_length=3)
+    phone: str = Field(min_length=7)
+    district_id: int
+    position: str | None = "Shifokor"
+    role: str = Field("doctor", pattern="^(doctor|owner)$")
+
+
+class StaffPatch(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    district_id: int | None = None
+    position: str | None = None
     active: bool | None = None
 
 

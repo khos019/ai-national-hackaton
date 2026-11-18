@@ -42,7 +42,7 @@ def add_observation(db: Session, patient: models.Patient, data: dict, *, source:
     symptoms = [s for s in data.get("symptoms") or [] if s in rules.symptoms]
     obs = models.Observation(
         patient_id=patient.id, recorded_at=recorded_at or utcnow(), source=source,
-        entered_by=entered_by, symptoms=symptoms, note=data.get("note"),
+        entered_by=entered_by, symptoms=symptoms, note=data.get("note"), meds_taken=data.get("meds_taken"),
         **{k: data.get(k) for k in PARAMS},
     )
     db.add(obs)

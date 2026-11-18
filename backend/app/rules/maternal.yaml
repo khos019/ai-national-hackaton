@@ -86,6 +86,14 @@ parameters:
     bands:
       - {zone: red, gte: 3, text: "Proteinuriya 2+ va yuqori"}
       - {zone: yellow, gte: 2, text: "Proteinuriya 1+"}
+  fetal_movements:
+    # "Count to 10": movements felt in 2 hours (after a meal, lying on the side). From 28 weeks.
+    label: "Homila harakati (2 soatda)"
+    unit: "marta"
+    freshness_days: 2
+    bands:
+      - {zone: red, lt: 6, text: "Homila harakati keskin kamaygan — homila distressi xavfi"}
+      - {zone: yellow, lt: 10, text: "Homila harakati kamaygan (10 dan kam)"}
 
 # WHO pregnancy danger signs — the woman can report these herself.
 symptoms:
@@ -114,6 +122,10 @@ combos:
     label: "Preeklampsiya: gipertenziya + proteinuriya"
     zone: red
     params: [{param: sbp, gte: 140}, {param: proteinuria, gte: 2}]
+  - code: severe_headache_vision
+    label: "Kuchli bosh og'rig'i + ko'rish buzilishi (JSST xavf belgisi)"
+    zone: red
+    all_symptoms: [severe_headache, blurred_vision]
   - code: sepsis_suspect
     label: "Sepsis shubhasi: isitma + taxikardiya"
     zone: red
@@ -130,6 +142,7 @@ risk_factors:
   multiple_pregnancy:   {label: "Ko'p homilalik (egizak)", zone_floor: yellow}
   chronic_hypertension: {label: "Surunkali gipertenziya", zone_floor: yellow}
   diabetes:             {label: "Qandli diabet", zone_floor: yellow}
+  gestational_diabetes: {label: "Gestatsion diabet (homiladorlik diabeti)", zone_floor: yellow}
   heart_disease:        {label: "Yurak kasalligi", zone_floor: yellow}
   kidney_disease:       {label: "Buyrak kasalligi", zone_floor: yellow}
   anemia_history:       {label: "Surunkali anemiya"}

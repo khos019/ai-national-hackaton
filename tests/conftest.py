@@ -9,4 +9,4 @@ sys.path.insert(0, str(ROOT))
 _tmp = Path(tempfile.mkdtemp()) / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.as_posix()}"
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
-os.environ["ESCALATION_SECONDS"] = "60,120"
+os.environ["ESCALATION_SECONDS"] = "60"

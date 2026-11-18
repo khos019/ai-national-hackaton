@@ -46,6 +46,8 @@ OUTCOME = {"normal": "normal_delivery", "gest_hypertension": "gestational_hypert
            "infection": "infection"}
 
 DEMO_PHONE = "+998901234567"
+OWNER_PHONE = "+998900000001"
+DEMO_PASSWORD = "perizone2026"
 
 
 def phone(rng):
@@ -96,8 +98,33 @@ def mother_values(rng, arche, progress, base, self_report=False):
             "temperature": round(temp, 1), "heart_rate": round(hr), "proteinuria": prot, "symptoms": symptoms}
 
 
-def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
+DOCTOR_TITLES = ["Akusher-ginekolog", "Patronaj hamshirasi"]
+
+
+def _snapshot_real_patients() -> list[dict]:
+    """Keep people that real users linked via Telegram (so a reseed doesn't break a live test)."""
+    try:
+        from sqlalchemy import inspect
+        if not inspect(engine).has_table("patients"):
+            return []
+        db = SessionLocal()
+        from backend.app.services.notify import DEMO_CHAT_BASE
+        rows = db.query(models.Patient).filter(models.Patient.telegram_chat_id.is_not(None),
+                                               models.Patient.telegram_chat_id > DEMO_CHAT_BASE).all()
+        keep = [{"kind": p.kind, "full_name": p.full_name, "birth_date": p.birth_date, "phone": p.phone,
+                 "district": p.district.name if p.district else None, "lmp_date": p.lmp_date,
+                 "birth_weight_g": p.birth_weight_g, "gestational_age_at_birth": p.gestational_age_at_birth,
+                 "apgar5": p.apgar5, "risk_factors": p.risk_factors or [], "telegram_chat_id": p.telegram_chat_id,
+                 "address": p.address} for p in rows if p.full_name != "Malika Karimova"]
+        db.close()
+        return keep
+    except Exception:
+        return []
+
+
+def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7, owner_phone: str | None = None) -> None:
     rng = random.Random(rng_seed)
+    keep = _snapshot_real_patients()
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     db = SessionLocal()
@@ -112,13 +139,30 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
         districts.append(d)
     db.flush()
 
-    code = 100
+    from backend.app.auth import hash_password, new_invite_code
+
+    # Demo logins (printed at the end). One doctor stays NOT activated to demo the invite-code flow.
+    owner = models.Staff(full_name="Nodira Rahimova", role="owner", position="Administrator (sog'liqni saqlash boshqarmasi)",
+                         phone=owner_phone or OWNER_PHONE, password_hash=hash_password(DEMO_PASSWORD))
+    db.add(owner)
+    doctors: dict[int, list[models.Staff]] = {}
+    used_names = {"Nodira Rahimova"}
+    n = 0
     for d in districts:
-        for role, title in (("specialist", "OvaBMU mutaxassisi"), ("head", "Bosh shifokor"), ("nurse", "Patronaj hamshirasi")):
-            code += 1
-            db.add(models.Staff(full_name=f"{rng.choice(FIRST)} {rng.choice(LAST)} ({title}, {d.name})",
-                                role=role, district_id=d.id, phone=phone(rng), link_code=f"{d.name[:3].upper().replace(chr(39), '')}{code}"))
-    db.add(models.Staff(full_name="Viloyat perinatal markazi navbatchisi", role="regional", phone=phone(rng), link_code="REG001"))
+        for title in DOCTOR_TITLES:
+            n += 1
+            name = f"{rng.choice(FIRST)} {rng.choice(LAST)}"
+            while name in used_names:
+                name = f"{rng.choice(FIRST)} {rng.choice(LAST)}"
+            used_names.add(name)
+            doc = models.Staff(full_name=name, role="doctor", position=title,
+                               district_id=d.id, phone=f"+99890000{n + 1:04d}")
+            if d.name == "Yakkasaroy" and title == DOCTOR_TITLES[1]:
+                doc.link_code = new_invite_code(db, "DR")  # not activated yet
+            else:
+                doc.password_hash = hash_password(DEMO_PASSWORD)
+            db.add(doc)
+            doctors.setdefault(d.id, []).append(doc)
     db.flush()
 
     mothers = []
@@ -135,13 +179,16 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
         if rng.random() < 0.04: rf.append("social_risk")
         if arche == "gest_hypertension" and rng.random() < 0.3: rf.append("chronic_hypertension")
         if arche == "preeclampsia" and rng.random() < 0.4: rf.append("prior_preeclampsia")
-        if arche == "gdm" and rng.random() < 0.3: rf.append("diabetes")
-        lat, lon = jitter(rng, d.lat, d.lon)
+        if arche == "gdm": rf.append("gestational_diabetes")
         is_demo = i == 0
+        if is_demo:
+            d = next(x for x in districts if x.name == "Yakkasaroy")
+        lat, lon = jitter(rng, d.lat, d.lon)
         p = models.Patient(
             kind="mother", full_name="Malika Karimova" if is_demo else f"{rng.choice(FIRST)} {rng.choice(LAST)}",
             birth_date=date(today.year - age, rng.randint(1, 12), rng.randint(1, 28)),
-            phone=DEMO_PHONE if is_demo else phone(rng), district_id=d.id,
+            phone=DEMO_PHONE if is_demo else phone(rng), district_id=d.id, consent=True,
+            doctor_id=(doctors[d.id][0] if is_demo else rng.choice(doctors[d.id])).id,
             address=f"{d.name} t., {rng.choice(STREETS)} ko'chasi, {rng.randint(1, 120)}-uy",
             lat=lat, lon=lon, lmp_date=lmp, parity=rng.choice([0, 0, 1, 1, 2, 3, 4]),
             risk_factors=[] if is_demo else rf, created_at=datetime.combine(lmp + timedelta(weeks=8), datetime.min.time()),
@@ -158,8 +205,9 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
                 "glu": rng.gauss(4.4, 0.25), "hr": rng.gauss(78, 6), "w": rng.gauss(58, 7)}
         start_week = rng.randint(6, 12)
         uses_bot = is_demo or rng.random() < 0.55
-        if uses_bot:
-            p.telegram_chat_id = None  # becomes real when she links via the bot
+        if uses_bot and not is_demo:
+            from backend.app.services.notify import DEMO_CHAT_BASE
+            p.telegram_chat_id = DEMO_CHAT_BASE - p.id  # placeholder link; the bot never messages these
         # Clinic visits: every 2-4 weeks early, weekly after 28 weeks
         week = start_week
         visit_times = []
@@ -213,11 +261,33 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
         name = f"{rng.choice(BOY if boy else GIRL)} {surname[:-1] if boy and surname.endswith('a') else surname}"
         lat, lon = jitter(rng, d.lat, d.lon)
         nb = models.Patient(kind="newborn", full_name=name, birth_date=today - timedelta(days=age_days),
-                            phone=phone(rng), district_id=d.id, lat=lat, lon=lon,
+                            phone=phone(rng), district_id=d.id, lat=lat, lon=lon, consent=True,
+                            doctor_id=rng.choice(doctors[d.id]).id,
                             address=f"{d.name} t., {rng.choice(STREETS)} ko'chasi",
                             birth_weight_g=bw, gestational_age_at_birth=ga, apgar5=apgar,
                             risk_factors=["maternal_infection"] if sick and rng.random() < 0.5 else [])
         db.add(nb)
+        if rng.random() < 0.6:
+            # Mother came to the polyclinic with her baby: her own record (postpartum), baby linked to her.
+            from backend.app.services.notify import DEMO_CHAT_BASE
+            birth = nb.birth_date
+            mom = models.Patient(kind="mother", full_name=mother_name, phone=nb.phone, district_id=d.id,
+                                 doctor_id=nb.doctor_id, consent=True, lat=lat, lon=lon, address=nb.address,
+                                 birth_date=date(today.year - rng.randint(20, 38), rng.randint(1, 12), rng.randint(1, 28)),
+                                 lmp_date=birth - timedelta(weeks=ga), parity=rng.choice([1, 1, 2, 3]),
+                                 outcome="preterm_birth" if ga < 37 else rng.choice(["normal_delivery"] * 3 + ["cesarean"]),
+                                 outcome_date=birth, risk_factors=["prior_cesarean"] if rng.random() < 0.15 else [])
+            db.add(mom)
+            db.flush()
+            nb.mother_id = mom.id
+            if rng.random() < 0.7:
+                mom.telegram_chat_id = nb.telegram_chat_id = DEMO_CHAT_BASE - mom.id
+            for k in range(0, age_days + 1, 7):  # postpartum check-ups
+                at = datetime.combine(birth + timedelta(days=k + 1), datetime.min.time()) + timedelta(hours=rng.randint(9, 16))
+                if at < now:
+                    add_observation(db, mom, {"sbp": round(rng.gauss(116, 8)), "dbp": round(rng.gauss(74, 6)),
+                                              "temperature": round(36.7 + rng.gauss(0, .2), 1), "hemoglobin": round(rng.gauss(112, 8))},
+                                    source="clinic", entered_by="Patronaj hamshirasi", recorded_at=at, notify=False)
         db.flush()
         w = bw / 1000
         for day in range(0, age_days + 1, rng.choice([2, 3])):
@@ -233,6 +303,60 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
                     "symptoms": rng.sample(["poor_feeding", "lethargy", "jaundice"], 1) if late_sick else []}
             add_observation(db, nb, vals, source="clinic" if day % 2 == 0 else "self",
                             entered_by="Patronaj hamshirasi", recorded_at=at, notify=False)
+
+    # Real (Telegram-linked) patients from the previous database + the team's own test patients
+    if not keep:
+        keep = [{"kind": "mother", "full_name": "Xaitova Mushtariy", "phone": "+998917777296", "district": "Chilonzor",
+                 "lmp_date": today - timedelta(weeks=30)},
+                {"kind": "mother", "full_name": "Sevinch Elmuradova", "phone": "+998936898930", "district": "Chilonzor",
+                 "lmp_date": today - timedelta(weeks=26)}]
+    for k in keep:
+        k = dict(k)
+        d = next((x for x in districts if x.name == k.pop("district", None)), districts[0])
+        rp = models.Patient(**k, district_id=d.id, doctor_id=doctors[d.id][0].id, consent=True)
+        db.add(rp)
+        db.flush()
+        print(f"Kept real patient: {rp.full_name} -> doctor {doctors[d.id][0].full_name} ({d.name})")
+
+    # Subscriptions (mothers): ~45% paying, ~15% in trial, ~8% free (social), rest free tier / expired
+    from backend.app.services import subscriptions as subs_svc
+    for p in db.query(models.Patient).filter_by(kind="mother").all():
+        if not p.telegram_chat_id and p.full_name != "Malika Karimova":
+            continue  # subscriptions only for women who use the bot
+        r = rng.random()
+        joined = now - timedelta(days=rng.randint(10, 120))
+        trial_end = joined + timedelta(days=subs_svc.TRIAL_DAYS)
+        trial = models.Subscription(patient_id=p.id, plan="trial", started_at=joined, expires_at=trial_end, provider="auto")
+        db.add(trial)
+        if p.full_name == "Malika Karimova" or r < 0.45:
+            start = trial_end
+            while start < now:
+                db.add(models.Subscription(patient_id=p.id, plan="monthly", started_at=start, expires_at=start + timedelta(days=30),
+                                           amount=subs_svc.PRICE, provider=rng.choice(["click", "payme"]),
+                                           payment_ref=f"tx{rng.randint(10**7, 10**8)}"))
+                start += timedelta(days=30)
+        elif r < 0.60:
+            trial.started_at, trial.expires_at = now - timedelta(days=rng.randint(0, 5)), now + timedelta(days=rng.randint(1, 6))
+        elif r < 0.68:
+            db.add(models.Subscription(patient_id=p.id, plan="free", started_at=trial_end, expires_at=now + timedelta(days=60), provider="owner"))
+    db.flush()
+
+    # Sample AI-assistant conversations (what the doctor sees on the patient card)
+    demo_chats = [
+        ("Homiladorlikda qanday mevalar foydali? Ko'ngil aynishi bor", "none",
+         "Ko'ngil aynishi homiladorlikning dastlabki oylarida ko'p uchraydi. Kam-kamdan, tez-tez ovqatlaning, "
+         "olma, banan, nok kabi mevalar va yetarli suv foydali. Qusish to'xtamasa yoki suv ham ichib bo'lmasa — shifokoringizga ayting."),
+        ("Kechadan beri oyoqlarim shishdi, bosimim 138/88", "urgent",
+         "Rahmat, ma'lumotingiz shifokoringizga yuborildi. Oyoqni balandroq qo'yib dam oling, tuzni kamaytiring. "
+         "Agar yuz yoki qo'llar ham shishsa, kuchli bosh og'rig'i yoki ko'z oldi qorong'ilashsa — darhol 103 ga qo'ng'iroq qiling."),
+    ]
+    sample = [p for p in mothers[1:40] if p.zone != "green"][:6]
+    for i, p in enumerate(sample):
+        q, urg, a = demo_chats[i % 2]
+        t = now - timedelta(hours=rng.randint(2, 60))
+        ext = {"symptoms": ["swelling_face_hands"], "sbp": 138.0, "dbp": 88.0} if urg == "urgent" else {"symptoms": []}
+        db.add(models.AiMessage(patient_id=p.id, role="user", text=q, created_at=t, urgency=urg, extracted=ext, engine="claude-opus-5-5"))
+        db.add(models.AiMessage(patient_id=p.id, role="assistant", text=a, created_at=t + timedelta(seconds=4), engine="claude-opus-5-5"))
 
     # Final pass with ML enabled — current zones
     ml.ENABLED = True
@@ -259,7 +383,13 @@ def seed(n_mothers: int, n_newborns: int, rng_seed: int = 7) -> None:
     print("Seeded:", {f"{k[0]}/{k[1]}": v for k, v in sorted(zones.items())})
     print("Alerts:", db.query(models.Alert).count(), "| open:", db.query(models.Alert).filter_by(status="open").count())
     print(f"Demo patient: Malika Karimova, phone {DEMO_PHONE}")
-    print("Staff Telegram link codes:", ", ".join(s.link_code for s in db.query(models.Staff).filter(models.Staff.role != "nurse")))
+    print(f"\n=== Website logins (password for all activated demo accounts: {DEMO_PASSWORD}) ===")
+    for s in db.query(models.Staff).order_by(models.Staff.role.desc(), models.Staff.district_id).all():
+        n = db.query(models.Patient).filter_by(doctor_id=s.id).count()
+        where = s.district.name if s.district else "barcha tumanlar"
+        state = "faol" if s.password_hash else f"FAOLLASHTIRILMAGAN, kod {s.link_code}"
+        print(f"  {s.phone}  {s.role:6s}  {s.full_name} — {s.position or ''}, {where}"
+              + (f", {n} bemor" if s.role == "doctor" else "") + f"  [{state}]")
     db.close()
 
 
@@ -268,5 +398,6 @@ if __name__ == "__main__":
     ap.add_argument("--mothers", type=int, default=160)
     ap.add_argument("--newborns", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--owner-phone", default=None, help="your phone, to log in as owner")
     a = ap.parse_args()
-    seed(a.mothers, a.newborns, a.seed)
+    seed(a.mothers, a.newborns, a.seed, a.owner_phone)

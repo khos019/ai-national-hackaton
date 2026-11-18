@@ -25,16 +25,65 @@ class District(Base):
 
 
 class Staff(Base):
-    """Health workers. role: nurse | specialist (OvaBMU, district) | head (district) | regional."""
+    """Health workers.
+
+    role: doctor — doctor / patronage nurse; owns patients and sees only them
+          owner  — health department / admin; sees all districts, manages doctors
+    """
 
     __tablename__ = "staff"
     id: Mapped[int] = mapped_column(primary_key=True)
     full_name: Mapped[str] = mapped_column(String(160))
     role: Mapped[str] = mapped_column(String(20))
     district_id: Mapped[int | None] = mapped_column(ForeignKey("districts.id"))
+    position: Mapped[str | None] = mapped_column(String(80))  # e.g. "Akusher-ginekolog", "Patronaj hamshirasi"
     phone: Mapped[str | None] = mapped_column(String(32))
-    telegram_chat_id: Mapped[int | None] = mapped_column(Integer)
-    link_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(200))  # set by the doctor on first activation
+    link_code: Mapped[str | None] = mapped_column(String(16), unique=True)  # one-time activation (invite) code
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    active: Mapped[bool | None] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
+
+    district: Mapped[District | None] = relationship()
+
+
+class Session(Base):
+    """Website login session (cookie)."""
+
+    __tablename__ = "sessions"
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    staff_id: Mapped[int] = mapped_column(ForeignKey("staff.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class Subscription(Base):
+    """Monthly premium subscription of a woman (one row per paid/granted period)."""
+
+    __tablename__ = "subscriptions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    plan: Mapped[str] = mapped_column(String(20))  # trial | monthly | free (social, granted by owner)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    amount: Mapped[int] = mapped_column(Integer, default=0)  # so'm
+    provider: Mapped[str | None] = mapped_column(String(20))  # click | payme | demo | owner
+    payment_ref: Mapped[str | None] = mapped_column(String(64))
+    cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class AiMessage(Base):
+    """Telegram AI-assistant conversation (visible to the woman's doctor)."""
+
+    __tablename__ = "ai_messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    role: Mapped[str] = mapped_column(String(10))  # user | assistant
+    text: Mapped[str] = mapped_column(Text)
+    extracted: Mapped[dict | None] = mapped_column(JSON)  # structured data pulled from the message
+    urgency: Mapped[str | None] = mapped_column(String(12))  # none | routine | urgent | emergency
+    engine: Mapped[str | None] = mapped_column(String(30))  # claude model id | rules
 
 
 class Patient(Base):
@@ -45,6 +94,8 @@ class Patient(Base):
     birth_date: Mapped[date | None] = mapped_column(Date)
     phone: Mapped[str | None] = mapped_column(String(32), index=True)
     district_id: Mapped[int] = mapped_column(ForeignKey("districts.id"))
+    doctor_id: Mapped[int | None] = mapped_column(ForeignKey("staff.id"), index=True)  # responsible doctor
+    consent: Mapped[bool | None] = mapped_column(Boolean)  # agreed to data processing & Telegram monitoring
     address: Mapped[str | None] = mapped_column(String(255))
     lat: Mapped[float | None] = mapped_column(Float)
     lon: Mapped[float | None] = mapped_column(Float)
@@ -76,6 +127,7 @@ class Patient(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     district: Mapped[District] = relationship()
+    doctor: Mapped[Staff | None] = relationship(foreign_keys=[doctor_id])
     observations: Mapped[list[Observation]] = relationship(
         back_populates="patient", order_by="Observation.recorded_at", cascade="all, delete-orphan"
     )
@@ -102,6 +154,8 @@ class Observation(Base):
     hemoglobin: Mapped[float | None] = mapped_column(Float)  # g/L
     proteinuria: Mapped[int | None] = mapped_column(Integer)  # 0 neg, 1 trace, 2 = 1+, 3 = 2+, 4 = 3+
     weight: Mapped[float | None] = mapped_column(Float)  # kg (mother) / kg (newborn)
+    fetal_movements: Mapped[float | None] = mapped_column(Float)  # kick count in 2 h ("count to 10")
+    meds_taken: Mapped[bool | None] = mapped_column(Boolean)  # iron / folic acid taken today
     symptoms: Mapped[list] = mapped_column(JSON, default=list)
     note: Mapped[str | None] = mapped_column(Text)
 

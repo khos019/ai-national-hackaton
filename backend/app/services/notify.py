@@ -1,9 +1,9 @@
 """Outgoing notifications.
 
-Channels:
-  * Telegram (primary) — if TELEGRAM_BOT_TOKEN is set and the staff member linked their chat
-  * SMS (fallback)     — stub; plug in a local gateway (e.g. Eskiz.uz / Play Mobile) here
-  * in-app             — always: the dashboard polls /api/alerts
+Doctors work on the website (the Telegram bot is for women only):
+  * in-app   — always: the website polls alerts, plays a sound and shows a desktop notification
+  * SMS      — for red alerts; stub — plug in a local gateway (e.g. Eskiz.uz / Play Mobile) here
+Women get messages from the Telegram bot (reminders, answers, advice).
 """
 from __future__ import annotations
 
@@ -22,8 +22,15 @@ def telegram_enabled() -> bool:
     return bool(settings.telegram_bot_token)
 
 
+DEMO_CHAT_BASE = -9_000_000_000_000_000  # seed data: fake chat ids at/below this are never contacted
+
+
+def is_demo_chat(chat_id) -> bool:
+    return isinstance(chat_id, int) and chat_id <= DEMO_CHAT_BASE
+
+
 def tg_call(method: str, payload: dict, timeout: float = 8.0) -> dict | None:
-    if not telegram_enabled():
+    if not telegram_enabled() or is_demo_chat(payload.get("chat_id")):
         return None
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
     try:
@@ -69,16 +76,9 @@ def send_sms(phone: str | None, text: str) -> bool:
 
 def send_alert(alert: models.Alert, staff: models.Staff) -> str:
     log.info("ALERT #%s L%s -> %s (%s): %s", alert.id, alert.level, staff.full_name, staff.role, alert.title)
-    if telegram_enabled() and staff.telegram_chat_id:
-        res = tg_call("sendMessage", {
-            "chat_id": staff.telegram_chat_id, "text": alert_text(alert), "parse_mode": "HTML",
-            "reply_markup": alert_keyboard(alert.id),
-        })
-        if res and res.get("ok"):
-            return "telegram"
-    if alert.zone == "red" and send_sms(staff.phone, f"PeriZone: {alert.title} - {alert.patient.full_name}"):
-        return "sms(stub)+in-app"
-    return "in-app"
+    if alert.zone == "red" and send_sms(staff.phone, f"PeriZone: {alert.title} - {alert.patient.full_name}. Saytni oching."):
+        return "sayt + SMS"
+    return "sayt"
 
 
 def remind_patient(p: models.Patient) -> None:

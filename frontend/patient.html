@@ -3,163 +3,267 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bemor kartasi</title>
+<title>PeriZone — Bemor kartasi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
+<style>
+  .hero-card { padding: 20px 22px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .hero-card .info { flex: 1; min-width: 260px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 999px; }
+  .action-banner { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 18px 20px; border-radius: var(--radius); border: 1px solid; }
+  .action-banner.red { background: var(--red-soft); border-color: var(--red-border); }
+  .action-banner.yellow { background: var(--yellow-soft); border-color: var(--yellow-border); }
+  .action-banner.green { background: var(--green-soft); border-color: var(--green-border); }
+  .action-banner .big { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #fff; }
+  .action-banner.red .big { background: var(--red); } .action-banner.yellow .big { background: var(--yellow); } .action-banner.green .big { background: var(--green); }
+  .action-banner ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13.5px; columns: 2; column-gap: 28px; }
+  @media (max-width: 760px) { .action-banner ul { columns: 1; } }
+  .chat { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow: auto; padding: 4px 18px 18px; }
+  .bubble-msg { max-width: 82%; padding: 10px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; white-space: pre-line; }
+  .bubble-msg.user { align-self: flex-start; background: var(--surface-3); border-bottom-left-radius: 4px; }
+  .bubble-msg.assistant { align-self: flex-end; background: var(--primary-soft); color: var(--text); border-bottom-right-radius: 4px; }
+  .bubble-msg .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+</style>
 </head>
 <body>
-<div id="hdr"></div>
-<main class="grid" id="root"><div class="empty">Yuklanmoqda…</div></main>
+<div class="app" id="app">
+<main class="main">
+  <a href="/patients.html" class="small muted" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">← Bemorlar ro'yxati</a>
+  <div id="root" class="grid"><div class="card" style="padding:24px"><div class="skeleton" style="width:40%"></div></div></div>
+</main>
+</div>
 
-<dialog id="obsDlg">
-  <form method="dialog" id="obsForm">
-    <div class="hd"><h2>Yangi ko'rsatkich kiritish</h2></div>
-    <div class="bd grid">
-      <div class="form-grid" id="obsFields"></div>
-      <div><div class="small muted" style="margin-bottom:6px">Belgilar / shikoyatlar</div><div class="checks" id="obsSymptoms"></div></div>
-      <div class="form-grid">
-        <label>Manba<select name="source"><option value="clinic">Klinika (hamshira/shifokor)</option><option value="lab">Laboratoriya</option><option value="device">Qurilma</option><option value="self">O'zi kiritgan</option></select></label>
-        <label>Kiritdi<input name="entered_by" placeholder="F.I.Sh."></label>
-      </div>
-      <label class="field">Izoh<textarea name="note" rows="2"></textarea></label>
+<dialog id="obsDlg"><form method="dialog" id="obsForm">
+  <div class="d-h"><div class="bubble blue" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center" id="obsIc"></div>
+    <div><h2>Yangi o'lchov kiritish</h2><div class="small muted">Saqlangandan so'ng zona darhol qayta hisoblanadi</div></div></div>
+  <div class="d-b grid" style="gap:16px">
+    <div class="form-grid" id="obsFields"></div>
+    <div><div class="small" style="font-weight:600;margin-bottom:8px">Shikoyatlar / belgilar</div><div class="checks" id="obsSymptoms"></div></div>
+    <div class="form-grid">
+      <label class="field">Manba<select name="source"><option value="clinic">Klinik ko'rik</option><option value="lab">Laboratoriya</option><option value="device">Qurilma</option></select></label>
+      <label class="field" style="grid-column:span 2">Izoh<input name="note" placeholder="Ixtiyoriy"></label>
     </div>
-    <div class="ft"><button value="cancel" formnovalidate>Bekor qilish</button><button class="primary" value="save" id="obsSave">Saqlash va qayta baholash</button></div>
-  </form>
-</dialog>
+  </div>
+  <div class="d-f"><button class="btn" value="cancel" formnovalidate>Bekor qilish</button><button class="btn primary" value="save">Saqlash va baholash</button></div>
+</form></dialog>
+
+<dialog id="docDlg"><form method="dialog" id="docForm">
+  <div class="d-h"><div><h2>Mas'ul shifokorni almashtirish</h2><div class="small muted">Bemor yangi shifokorning ro'yxatiga o'tadi, xabarnomalar ham unga boradi</div></div></div>
+  <div class="d-b"><label class="field">Shifokor<select id="docSelect"></select></label></div>
+  <div class="d-f"><button class="btn" value="cancel">Bekor qilish</button><button class="btn primary" value="save">Saqlash</button></div>
+</form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="/assets/common.js"></script>
+<script src="/assets/app.js"></script>
 <script>
-document.getElementById("hdr").innerHTML = headerHTML("patients");
 const pid = new URLSearchParams(location.search).get("id");
-let meta, P, charts = [];
+let meta, me, P, charts = [];
 const OUTCOMES = {
   "": "— hali noma'lum —", normal_delivery: "Normal tug'ruq", preeclampsia: "Preeklampsiya", eclampsia: "Eklampsiya",
   gestational_hypertension: "Gestatsion gipertenziya", gestational_diabetes: "Gestatsion diabet", anemia: "Anemiya",
   hemorrhage: "Qon ketish", infection: "Infeksiya / sepsis", preterm_birth: "Muddatidan oldin tug'ruq",
   stillbirth: "O'lik tug'ilish", cesarean: "Kesar kesish", neonatal_icu: "Chaqaloq reanimatsiyada", recovered: "Sog'aydi",
 };
+const CAT = { parameter: "ko'rsatkich", symptom: "belgi", combo: "kombinatsiya", trend: "trend", risk_factor: "anamnez", aggregation: "MEOWS", ml: "AI bahosi" };
+const URG = { emergency: ["bad", "shoshilinch"], urgent: ["warn", "xavotirli"], routine: ["", "oddiy"], none: ["", "savol"] };
+const EVENT_UZ = { created: "Yaratildi", notified: "Yuborildi", escalated: "Eskalatsiya", acknowledged: "Qabul qilindi", action: "Chora", resolved: "Yopildi", updated: "Yangilandi" };
 
 function reasonsHTML(reasons) {
-  if (!reasons.length) return `<div class="muted">Xavf omillari aniqlanmadi — barcha ko'rsatkichlar me'yorda.</div>`;
-  const cat = { parameter: "ko'rsatkich", symptom: "belgi", combo: "kombinatsiya", trend: "trend", risk_factor: "anamnez", aggregation: "MEOWS", ml: "ML" };
-  return `<ul class="reasons">${reasons.map(r => `<li><span class="dot ${r.zone}"></span><div>${esc(r.label)}
-    <div class="pill-row" style="margin-top:2px"><span class="badge">${cat[r.category] || r.category}</span>
+  if (!reasons.length) return emptyState("Xavf omillari aniqlanmadi — barcha ko'rsatkichlar me'yorda", "heart");
+  return `<ul class="reasons">${reasons.map(r => `<li><span class="dot ${r.zone}"></span><div style="flex:1">${esc(r.label)}
+    <div class="row" style="gap:6px;margin-top:3px"><span class="badge">${CAT[r.category] || r.category}</span>
     ${r.source ? `<span class="badge ${r.source === "self" ? "self" : ""}">${SOURCE_UZ[r.source]}</span>` : ""}
-    ${r.observed_at ? `<span class="small muted">${fmtDate(r.observed_at)}</span>` : ""}</div></div></li>`).join("")}</ul>`;
+    ${r.observed_at ? `<span class="tiny faint">${fmtDate(r.observed_at)}</span>` : ""}</div></div></li>`).join("")}</ul>`;
 }
 
-function mlHTML(ml) {
-  if (!ml) return `<div class="muted small">ML bahosi uchun yosh va qon bosimi kerak.</div>`;
-  const pr = ml.probabilities, row = (k, l, c) => `<div class="row"><span>${l}</span><div class="bar"><span class="${c}" style="width:${(pr[k] || 0) * 100}%"></span></div><span class="small num">${Math.round((pr[k] || 0) * 100)}%</span></div>`;
-  return `<div class="bars">${row("high", "Yuqori xavf", "r")}${row("mid", "O'rta xavf", "y")}${row("low", "Past xavf", "g")}</div>
-    <div class="small muted" style="margin-top:6px">Model: ${esc(ml.model)} · faqat maslahat, zonani pasaytirmaydi
-    ${ml.imputed.length ? `· to'ldirilgan: ${ml.imputed.join(", ")}` : ""}</div>`;
+function chatHTML(msgs) {
+  if (!msgs.length) return emptyState(P.telegram_linked ? "Bemor hali AI yordamchiga yozmagan" : "Bemor Telegram botga ulanmagan", "bot");
+  const sym = meta[P.kind === "mother" ? "mother" : "newborn"].symptoms;
+  return msgs.map(m => {
+    const ex = m.extracted || {};
+    const chips = [
+      ...(ex.symptoms || []).map(s => `<span class="badge bad">${esc(sym[s]?.label || s)}</span>`),
+      ex.sbp ? `<span class="badge">QB ${ex.sbp}/${ex.dbp}</span>` : "", ex.temperature ? `<span class="badge">${ex.temperature} °C</span>` : "",
+      ex.fetal_movements != null ? `<span class="badge">Harakat: ${ex.fetal_movements}</span>` : "",
+    ].join("");
+    const u = m.urgency && URG[m.urgency];
+    return `<div class="bubble-msg ${m.role}">${esc(m.text)}
+      <div class="meta">${m.role === "user" ? "👩 Bemor" : "🤖 AI yordamchi"} · ${fmtDate(m.at)}
+      ${u && m.role === "user" ? `<span class="badge ${u[0]}">${u[1]}</span>` : ""}${chips}</div></div>`;
+  }).join("");
 }
-
-function chartCard(id, title) { return `<div class="card"><div class="hd"><h2>${title}</h2></div><div class="bd"><div class="chart-box"><canvas id="${id}"></canvas></div></div></div>`; }
 
 function render() {
-  const p = P, isM = p.kind === "mother";
-  const k = isM ? "mother" : "newborn";
-  const rfs = meta[k].risk_factors;
-  const info = isM
-    ? `<dt>Yoshi</dt><dd>${p.age ?? "—"}</dd><dt>Homila muddati</dt><dd>${p.gestational_weeks ?? "—"} hafta</dd>
-       <dt>Taxminiy tug'ruq</dt><dd>${fmtDate(p.edd, false)}</dd><dt>Tug'ruqlar soni</dt><dd>${p.parity ?? "—"}</dd>`
-    : `<dt>Yoshi</dt><dd>${p.age_days} kun</dd><dt>Tug'ilgandagi vazn</dt><dd>${p.birth_weight_g} g</dd>
+  const p = P, isM = p.kind === "mother", k = isM ? "mother" : "newborn", owner = me.role === "owner";
+  const act = ZONE_ACTIONS[p.zone];
+  const sub = p.subscription;
+  const facts = isM
+    ? `<dt>Yoshi</dt><dd>${p.age ?? "—"}</dd>${p.postpartum_days != null
+        ? `<dt>Tug'ruq</dt><dd>${OUTCOMES[p.outcome] || p.outcome} · ${fmtDate(p.outcome_date, false)}</dd>`
+        : `<dt>Homila muddati</dt><dd>${p.gestational_weeks ?? "—"} hafta</dd><dt>Taxminiy tug'ruq</dt><dd>${fmtDate(p.edd, false)}</dd>`}<dt>Tug'ruqlar soni</dt><dd>${p.parity ?? "—"}</dd>`
+    : `<dt>Yoshi</dt><dd>${p.age_days} kunlik</dd><dt>Tug'ilgandagi vazn</dt><dd>${p.birth_weight_g} g</dd>
        <dt>Gestatsiya</dt><dd>${p.gestational_age_at_birth} hafta</dd><dt>Apgar (5 daq)</dt><dd>${p.apgar5}</dd>`;
   document.getElementById("root").innerHTML = `
-  <div class="card"><div class="hd">
-    ${zoneChip(p.zone)} <h2 style="font-size:18px">${esc(p.full_name)}</h2>
-    <span class="muted">${KIND_UZ[p.kind]} · ID ${p.id} · ${esc(p.district)}</span>
-    ${p.telegram_linked ? `<span class="badge self">Telegram ulangan</span>` : `<span class="badge">Telegram ulanmagan</span>`}
-    <div class="filters"><button class="primary" id="addObs">+ Ko'rsatkich kiritish</button></div>
-  </div></div>
-
-  <div class="grid cols-main">
-    <div class="grid" style="align-content:start">
-      <div class="card"><div class="hd"><h2>Nima uchun ${ZONE_UZ[p.zone].toLowerCase()} zona?</h2><span class="small muted">Yangilangan: ${ago(p.zone_updated_at)}</span></div>
-        <div class="bd">${reasonsHTML(p.reasons)}</div></div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-        ${isM ? chartCard("cBP", "Qon bosimi") + chartCard("cHb", "Gemoglobin va glyukoza") : chartCard("cNB", "Harorat va nafas") + chartCard("cW", "Vazn")}
+  <div class="card hero-card">
+    ${avatar(p.full_name, p.zone, "lg")}
+    <div class="info">
+      <div class="row" style="gap:10px"><h1 style="font-size:22px">${esc(p.full_name)}</h1>${zoneChip(p.zone)}
+        ${p.premium ? `<span class="badge" style="background:var(--yellow-soft);color:var(--yellow-strong)">${icon("star", "sm")} Premium</span>` : ""}</div>
+      <div class="chips">
+        <span class="chip">${icon(isM ? "heart" : "baby", "sm")}${patientMeta(p)}</span>
+        <span class="chip">${icon("doctor", "sm")}${esc(p.doctor || "—")}</span>
+        <span class="chip">${icon("map", "sm")}${esc(p.district || "")}</span>
+        ${p.phone ? `<a class="chip" href="tel:${esc(p.phone)}">${icon("phone", "sm")}${esc(p.phone)}</a>` : ""}
+        <span class="chip">${icon("telegram", "sm")}${p.telegram_linked ? "Telegram ulangan" : "Telegram ulanmagan"}</span>
       </div>
-      <div class="card"><div class="hd"><h2>Ko'rsatkichlar tarixi</h2><span class="small muted">${p.observations.length} ta yozuv</span></div>
-        <div class="bd flush table-wrap" style="max-height:420px"><table>
+    </div>
+    <div class="row">
+      ${owner ? `<button class="btn" id="docBtn">${icon("doctor", "sm")}Shifokorni almashtirish</button>` : ""}
+      <button class="btn primary" id="addObs">${icon("plus", "sm")}O'lchov kiritish</button>
+    </div>
+  </div>
+
+  <div class="action-banner ${p.zone}">
+    <div class="big">${icon(p.zone === "green" ? "check" : "alert", "lg")}</div>
+    <div><h2>${act.title}</h2>
+      <div class="small muted" style="margin-top:2px">${ZONE_UZ[p.zone]} zona · yangilangan ${ago(p.zone_updated_at)}</div>
+      <ul>${act.items.map(i => `<li>${i}</li>`).join("")}</ul></div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="grid" style="align-content:start">
+      <div class="card"><div class="card-h"><h2>Nima uchun ${ZONE_UZ[p.zone].toLowerCase()} zona?</h2><span class="sub">tizim topgan sabablar va ularning manbasi</span></div>
+        <div class="card-b">${reasonsHTML(p.reasons)}</div></div>
+      <div class="grid cols-2-even">
+        <div class="card"><div class="card-h"><h2>${isM ? "Qon bosimi" : "Harorat va nafas"}</h2><span class="sub">▲ — bemor o'zi kiritgan</span></div><div class="card-b"><div class="chart-box"><canvas id="c1"></canvas></div></div></div>
+        <div class="card"><div class="card-h"><h2>${isM ? "Gemoglobin va glyukoza" : "Vazn"}</h2></div><div class="card-b"><div class="chart-box"><canvas id="c2"></canvas></div></div></div>
+      </div>
+      <div class="card"><div class="card-h">${icon("bot")}<h2>AI yordamchi suhbati</h2><span class="sub">bemor Telegram'da yozgan va AI ajratib olgan ma'lumotlar</span></div>
+        <div class="chat" id="chat">${chatHTML(p.ai_messages)}</div></div>
+      <div class="card"><div class="card-h"><h2>Ko'rsatkichlar tarixi</h2><span class="sub">${p.observations.length} ta yozuv</span></div>
+        <div class="card-b flush table-wrap" style="max-height:420px"><table>
           <thead><tr><th>Vaqt</th><th>Manba</th><th>Qiymatlar</th><th>Belgilar</th></tr></thead>
           <tbody>${p.observations.map(o => {
-            const vals = Object.entries(meta[k].parameters).filter(([key]) => o[key] != null).map(([key, s]) =>
-              `${s.label.split(" ")[0]}: <b>${s.value_labels ? s.value_labels[o[key]] : o[key]}</b>`);
-            if (o.sbp != null && o.dbp != null) { vals.splice(0, 2, `QB: <b>${o.sbp}/${o.dbp}</b>`); }
-            return `<tr style="cursor:default"><td class="small">${fmtDate(o.recorded_at)}</td>
+            const vals = Object.entries(meta[k].parameters).filter(([key]) => o[key] != null && key !== "sbp" && key !== "dbp")
+              .map(([key, s]) => `${s.label.split(" (")[0]}: <b>${s.value_labels ? s.value_labels[o[key]] : o[key]}</b>`);
+            if (o.sbp != null) vals.unshift(`QB: <b>${o.sbp}/${o.dbp ?? "?"}</b>`);
+            if (o.weight != null) vals.push(`Vazn: <b>${o.weight}</b>`);
+            if (o.meds_taken != null) vals.push(`💊 ${o.meds_taken ? "ichdi" : "ichmadi"}`);
+            return `<tr><td class="small nowrap">${fmtDate(o.recorded_at)}</td>
               <td><span class="badge ${o.source === "self" ? "self" : ""}">${SOURCE_UZ[o.source]}</span></td>
-              <td class="small">${vals.join(" · ") || "—"}</td>
-              <td class="small">${o.symptoms.map(s => esc(meta[k].symptoms[s]?.label || s)).join(", ") || '<span class="muted">—</span>'}</td></tr>`;
-          }).join("")}</tbody></table></div></div>
+              <td class="small">${vals.join(" · ") || (o.source === "self" && !o.symptoms.length ? '<span class="badge ok">Hammasi yaxshi 👍</span>' : "—")}${o.note ? `<div class="tiny faint">${esc(o.note)}</div>` : ""}</td>
+              <td class="small">${o.symptoms.map(s => esc(meta[k].symptoms[s]?.label || s)).join(", ") || '<span class="faint">—</span>'}</td></tr>`;
+          }).join("") || `<tr><td colspan="4">${emptyState("Hali o'lchov yo'q", "activity")}</td></tr>`}</tbody></table></div></div>
     </div>
 
     <div class="grid" style="align-content:start">
-      <div class="card"><div class="hd"><h2>Ma'lumotlar</h2></div><div class="bd"><dl class="kv">
-        ${info}<dt>Telefon</dt><dd>${esc(p.phone || "—")}</dd><dt>Manzil</dt><dd>${esc(p.address || "—")}</dd>
-      </dl></div></div>
-      ${isM ? `<div class="card"><div class="hd"><h2>ML xavf bahosi</h2></div><div class="bd">${mlHTML(p.ml)}</div></div>` : ""}
-      <div class="card"><div class="hd"><h2>Anamnez xavf omillari</h2></div><div class="bd">
-        <div class="checks" id="rfChecks">${Object.entries(rfs).filter(([, s]) => !s.auto).map(([code, s]) =>
-          `<label><input type="checkbox" value="${code}" ${p.risk_factors.includes(code) ? "checked" : ""}>${esc(s.label)}</label>`).join("")}</div>
-        <div style="margin-top:10px"><button id="saveRf">Saqlash</button> <span class="small muted">Yosh, vazn, muddat — avtomatik hisoblanadi</span></div>
+      <div class="card"><div class="card-h"><h2>Ma'lumotlar</h2></div><div class="card-b"><dl class="kv">
+        ${facts}<dt>Tug'ilgan sana</dt><dd>${fmtDate(p.birth_date, false)}</dd><dt>Manzil</dt><dd>${esc(p.address || "—")}</dd>
+        <dt>Rozilik</dt><dd>${p.consent ? '<span class="badge ok">berilgan</span>' : '<span class="badge warn">yo\'q</span>'}</dd></dl></div></div>
+
+      ${familyHTML(p)}
+
+      <div class="card"><div class="card-h">${icon("star")}<h2>Obuna</h2></div><div class="card-b">
+        <div class="row"><div><div style="font-weight:700">${esc(sub.plan_uz)}</div>
+          <div class="small muted">${sub.active ? `${sub.days_left} kun qoldi · ${fmtDate(sub.expires_at, false)} gacha` : "Xavf belgilari va bosimni kuzatish bepul ishlaydi"}</div></div>
+          <span class="spacer"></span>${sub.active ? '<span class="badge ok">faol</span>' : '<span class="badge">bepul tarif</span>'}</div>
+        ${owner ? `<div class="row" style="margin-top:12px"><button class="btn sm" onclick="subAct('grant_free')">${icon("heart", "sm")}Bepul Premium (3 oy)</button>
+          <button class="btn sm" onclick="subAct('pay_month')">${icon("money", "sm")}To'lovni qayd etish</button>
+          ${sub.active ? `<button class="btn sm ghost" onclick="subAct('cancel')">Bekor qilish</button>` : ""}</div>` : ""}
       </div></div>
-      <div class="card"><div class="hd"><h2>Natija (ML uchun yorliq)</h2></div><div class="bd grid">
-        <div class="small muted">Tug'ruq/kasallik natijasi keyinchalik modelni mahalliy ma'lumotda qayta o'qitish uchun ishlatiladi.</div>
-        <div class="form-grid"><label>Natija<select id="outcome">${Object.entries(OUTCOMES).map(([v, l]) => `<option value="${v}" ${p.outcome === v || (!p.outcome && !v) ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label>Sana<input type="date" id="outcomeDate" value="${p.outcome_date || ""}"></label></div>
-        <div><button id="saveOutcome">Saqlash</button></div>
+
+      ${!p.telegram_linked ? `<div class="callout info"><div class="txt"><b>Bemor Telegram'ga ulanmagan</b><br>
+        Unga ayting: Telegram'da <b>@${esc(meta.bot_username || "bot")}</b> ni oching → «Start» → «📱 Telefon raqamni yuborish». Raqam: <b>${esc(p.phone || "—")}</b></div></div>` : ""}
+
+      ${isM ? `<div class="card"><div class="card-h">${icon("sparkle")}<h2>AI xavf bahosi</h2><span class="sub">maslahat beruvchi model</span></div><div class="card-b">${mlHTML(p.ml)}</div></div>` : ""}
+
+      <div class="card"><div class="card-h"><h2>Anamnez xavf omillari</h2></div><div class="card-b">
+        <div class="checks" id="rfChecks" style="grid-template-columns:1fr">${Object.entries(meta[k].risk_factors).filter(([, s]) => !s.auto).map(([code, s]) =>
+          `<label class="check"><input type="checkbox" value="${code}" ${p.risk_factors.includes(code) ? "checked" : ""}><span class="dot ${s.zone_floor}"></span>${esc(s.label)}</label>`).join("")}</div>
+        <button class="btn sm" id="saveRf" style="margin-top:10px">Saqlash</button>
       </div></div>
-      <div class="card"><div class="hd"><h2>Xabarnomalar va audit</h2></div><div class="bd">
-        ${p.alerts.map(a => `<div style="margin-bottom:12px"><div><span class="dot ${a.zone}"></span> <b>${esc(a.title)}</b> <span class="badge">${a.status}</span></div>
-          <ul class="timeline" style="margin-top:4px">${a.events.map(e => `<li>${fmtDate(e.at)} — <b>${e.type}</b> ${esc(e.actor || "")} <span class="muted">${esc(e.detail || "")}</span></li>`).join("")}</ul></div>`).join("") || `<div class="muted">Xabarnoma bo'lmagan</div>`}
+
+      <div class="card"><div class="card-h"><h2>Natija</h2><span class="sub">AI modelni mahalliy ma'lumotda qayta o'qitish uchun</span></div><div class="card-b grid" style="gap:10px">
+        <div class="form-grid"><label class="field">Natija<select id="outcome">${Object.entries(OUTCOMES).map(([v, l]) => `<option value="${v}" ${(p.outcome || "") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="field">Sana<input type="date" id="outcomeDate" value="${p.outcome_date || ""}"></label></div>
+        <div><button class="btn sm" id="saveOutcome">Saqlash</button></div></div></div>
+
+      <div class="card"><div class="card-h">${icon("bell")}<h2>Xabarnomalar tarixi</h2></div><div class="card-b">
+        ${p.alerts.map(a => `<div style="margin-bottom:14px"><div class="row" style="gap:8px"><span class="dot ${a.zone}"></span><b style="font-size:13.5px">${esc(a.title)}</b>
+          <span class="badge ${a.status === "resolved" ? "" : a.status === "open" ? "bad" : "ok"}">${{ open: "javob kutmoqda", acknowledged: "qabul qilingan", resolved: "yopilgan" }[a.status]}</span></div>
+          <ul class="timeline">${a.events.map(e => `<li>${fmtDate(e.at)} — <b>${EVENT_UZ[e.type] || e.type}</b> ${esc(e.actor || "")} <span class="faint">${esc(e.detail || "")}</span></li>`).join("")}</ul></div>`).join("") || emptyState("Xabarnoma bo'lmagan")}
       </div></div>
     </div>
   </div>`;
 
   document.getElementById("addObs").onclick = openObs;
+  if (owner) document.getElementById("docBtn").onclick = openDoc;
   document.getElementById("saveRf").onclick = async () => {
     const risk_factors = [...document.querySelectorAll("#rfChecks input:checked")].map(i => i.value);
-    await api(`/api/patients/${pid}`, { method: "PATCH", body: { risk_factors } }); toast("Saqlandi, zona qayta hisoblandi"); load();
+    await api(`/api/patients/${pid}`, { method: "PATCH", body: { risk_factors } }); toast("Saqlandi — zona qayta hisoblandi"); load();
   };
   document.getElementById("saveOutcome").onclick = async () => {
     await api(`/api/patients/${pid}`, { method: "PATCH", body: { outcome: document.getElementById("outcome").value || null, outcome_date: document.getElementById("outcomeDate").value || null } });
     toast("Natija saqlandi");
   };
+  const chat = document.getElementById("chat"); chat.scrollTop = chat.scrollHeight;
   drawCharts();
+}
+
+function familyHTML(p) {
+  const person = x => `<a class="person" href="/patient.html?id=${x.id}" style="padding:10px 0;border-top:1px solid var(--border);text-decoration:none">
+    ${avatar(x.full_name, x.zone)}<div style="flex:1"><div class="nm">${esc(x.full_name)}</div><div class="mt">${patientMeta(x)}</div></div>${zoneChip(x.zone)}</a>`;
+  if (p.kind === "newborn") {
+    return `<div class="card"><div class="card-h">${icon("heart")}<h2>Onasi</h2></div><div class="card-b">
+      ${p.mother ? person(p.mother) : `<div class="muted small">Onasi registrga bog'lanmagan. Onasining telefoni: <b>${esc(p.phone || "—")}</b></div>`}</div></div>`;
+  }
+  const delivered = p.postpartum_days != null;
+  return `<div class="card"><div class="card-h">${icon("baby")}<h2>Farzandlari</h2><span class="sub">${delivered ? `tug'ruqdan keyin ${p.postpartum_days} kun` : "homiladorlik davom etmoqda"}</span></div><div class="card-b">
+    ${p.children.length ? p.children.map(person).join("") : `<div class="muted small" style="margin-bottom:10px">Chaqaloq hali ro'yxatga olinmagan. Ona chaqalog'i bilan kelganda uni alohida ro'yxatga oling — chaqaloq o'z zonasi bilan kuzatiladi, onasi esa ikkalasi uchun Telegram'dan ma'lumot yuboradi.</div>`}
+    <a class="btn sm" style="margin-top:10px" href="/patients.html?new=newborn&mother=${p.id}">${icon("plus", "sm")}Chaqaloqni ro'yxatga olish</a></div></div>`;
+}
+
+function mlHTML(ml) {
+  if (!ml) return `<div class="muted small">Baholash uchun yosh va qon bosimi kerak.</div>`;
+  const pr = ml.probabilities;
+  const row = (key, l, c) => `<div class="row2"><span>${l}</span><div class="bar"><span class="${c}" style="width:${(pr[key] || 0) * 100}%"></span></div><span class="small num">${Math.round((pr[key] || 0) * 100)}%</span></div>`;
+  return `<div class="bars">${row("high", "Yuqori xavf", "r")}${row("mid", "O'rta xavf", "y")}${row("low", "Past xavf", "g")}</div>
+    <div class="tiny muted" style="margin-top:8px">Model faqat maslahat beradi: yashil zonani sariqqa ko'tarishi mumkin, lekin o'zi qizil xabarnoma yaratmaydi va zonani pasaytirmaydi.</div>`;
+}
+
+async function subAct(action) {
+  const labels = { grant_free: "Bepul Premium berildi", pay_month: "To'lov qayd etildi", cancel: "Obuna bekor qilindi" };
+  if (action === "cancel" && !confirm("Obunani bekor qilasizmi?")) return;
+  await api(`/api/patients/${pid}/subscription`, { method: "POST", body: { action, months: action === "grant_free" ? 3 : 1 } });
+  toast(labels[action]); load();
 }
 
 function drawCharts() {
   charts.forEach(c => c.destroy()); charts = [];
   const obs = [...P.observations].reverse();
-  const series = key => obs.filter(o => o[key] != null).map(o => ({ x: parseUTC(o.recorded_at).getTime(), y: o[key], self: o.source === "self" }));
+  const pts = key => obs.filter(o => o[key] != null).map(o => ({ x: parseUTC(o.recorded_at).getTime(), y: o[key], self: o.source === "self" }));
   const grid = cssVar("--border"), txt = cssVar("--muted");
-  const ds = (label, key, color) => {
-    const pts = series(key);
-    return { label, data: pts, borderColor: color, backgroundColor: color, tension: .25, borderWidth: 2,
-      pointRadius: pts.map(p => p.self ? 4 : 3), pointStyle: pts.map(p => p.self ? "triangle" : "circle") };
-  };
-  const band = (y, color) => ({ type: "line", label: "", data: [], borderColor: color });
-  const opts = (yTitle, lines = []) => ({
+  const ds = (label, key, color, y = "y") => { const d = pts(key); return { label, data: d, yAxisID: y, borderColor: color, backgroundColor: color, tension: .3, borderWidth: 2.2,
+    pointRadius: d.map(p => p.self ? 4.5 : 3), pointStyle: d.map(p => p.self ? "triangle" : "circle") }; };
+  const opts = (yTitle, lines = [], y2) => ({
     responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
-    plugins: { legend: { labels: { color: txt, boxWidth: 10 } }, tooltip: { callbacks: { title: i => fmtDate(new Date(i[0].parsed.x).toISOString()) } } },
-    scales: { x: { type: "linear", ticks: { color: txt, callback: v => { const d = new Date(v); return `${d.getDate()}.${d.getMonth() + 1}`; }, maxTicksLimit: 6 }, grid: { color: grid } },
-      y: { title: { display: true, text: yTitle, color: txt }, ticks: { color: txt }, grid: { color: ctx => lines.includes(ctx.tick.value) ? cssVar("--red") : grid } } },
+    plugins: { legend: { labels: { color: txt, boxWidth: 10, usePointStyle: true } }, tooltip: { callbacks: { title: i => fmtDate(new Date(i[0].parsed.x).toISOString()) } } },
+    scales: {
+      x: { type: "linear", ticks: { color: txt, maxTicksLimit: 6, callback: v => { const d = new Date(v); return `${d.getDate()}.${d.getMonth() + 1}`; } }, grid: { color: grid } },
+      y: { title: { display: true, text: yTitle, color: txt }, ticks: { color: txt }, grid: { color: c => lines.includes(c.tick.value) ? cssVar("--red") : grid } },
+      ...(y2 ? { y2: { position: "right", title: { display: true, text: y2, color: txt }, ticks: { color: txt }, grid: { display: false } } } : {}),
+    },
   });
-  const mk = (id, datasets, o) => { const el = document.getElementById(id); if (el) charts.push(new Chart(el, { type: "line", data: { datasets }, options: o })); };
+  const mk = (id, datasets, o) => charts.push(new Chart(document.getElementById(id), { type: "line", data: { datasets }, options: o }));
   if (P.kind === "mother") {
-    mk("cBP", [ds("Sistolik", "sbp", cssVar("--red")), ds("Diastolik", "dbp", cssVar("--accent"))], opts("mmHg", [140, 160, 90, 110]));
-    const o2 = opts("g/L", [100, 70]);
-    o2.scales.y2 = { position: "right", title: { display: true, text: "mmol/L", color: txt }, ticks: { color: txt }, grid: { display: false } };
-    const glu = ds("Glyukoza", "glucose", cssVar("--yellow-dot")); glu.yAxisID = "y2";
-    mk("cHb", [ds("Gemoglobin", "hemoglobin", cssVar("--green")), glu], o2);
+    mk("c1", [ds("Sistolik", "sbp", cssVar("--red")), ds("Diastolik", "dbp", cssVar("--primary"))], opts("mmHg", [140, 160, 90, 110]));
+    mk("c2", [ds("Gemoglobin", "hemoglobin", cssVar("--green")), ds("Glyukoza", "glucose", cssVar("--yellow"), "y2")], opts("g/L", [100, 70], "mmol/L"));
   } else {
-    const o = opts("°C"); o.scales.y2 = { position: "right", title: { display: true, text: "/min", color: txt }, ticks: { color: txt }, grid: { display: false } };
-    const rr = ds("Nafas", "resp_rate", cssVar("--accent")); rr.yAxisID = "y2";
-    mk("cNB", [ds("Harorat", "temperature", cssVar("--red")), rr], o);
-    mk("cW", [ds("Vazn (kg)", "weight", cssVar("--green"))], opts("kg"));
+    mk("c1", [ds("Harorat", "temperature", cssVar("--red")), ds("Nafas", "resp_rate", cssVar("--primary"), "y2")], opts("°C", [], "/daq"));
+    mk("c2", [ds("Vazn (kg)", "weight", cssVar("--green"))], opts("kg"));
   }
 }
 
@@ -167,31 +271,44 @@ function openObs() {
   const k = P.kind === "mother" ? "mother" : "newborn";
   const params = { ...meta[k].parameters, weight: { label: "Vazn", unit: "kg" } };
   document.getElementById("obsFields").innerHTML = Object.entries(params).map(([key, s]) => s.value_labels
-    ? `<label>${s.label}<select name="${key}"><option value="">—</option>${Object.entries(s.value_labels).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>`
-    : `<label>${s.label} ${s.unit ? `(${s.unit})` : ""}<input name="${key}" type="number" step="any" inputmode="decimal"></label>`).join("");
+    ? `<label class="field">${s.label}<select name="${key}"><option value="">—</option>${Object.entries(s.value_labels).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>`
+    : `<label class="field">${s.label} ${s.unit ? `<span class="hint">${s.unit}</span>` : ""}<input name="${key}" type="number" step="any" inputmode="decimal"></label>`).join("");
   document.getElementById("obsSymptoms").innerHTML = Object.entries(meta[k].symptoms).map(([code, s]) =>
-    `<label class="${s.zone === "red" ? "red-sign" : ""}"><input type="checkbox" name="sym" value="${code}"><span class="dot ${s.zone}"></span>${esc(s.label)}</label>`).join("");
+    `<label class="check"><input type="checkbox" name="sym" value="${code}"><span class="dot ${s.zone}"></span>${esc(s.label)}</label>`).join("");
   document.getElementById("obsDlg").showModal();
 }
-
 document.getElementById("obsForm").addEventListener("submit", async e => {
   if (e.submitter?.value !== "save") return;
   e.preventDefault();
   const f = new FormData(e.target), body = { symptoms: f.getAll("sym") };
-  for (const [key, v] of f.entries()) {
-    if (key === "sym" || v === "") continue;
-    body[key] = ["source", "entered_by", "note"].includes(key) ? v : Number(v);
-  }
+  for (const [key, v] of f.entries()) { if (key === "sym" || v === "") continue; body[key] = ["source", "note"].includes(key) ? v : Number(v); }
   try {
     const r = await api(`/api/patients/${pid}/observations`, { method: "POST", body });
     document.getElementById("obsDlg").close(); e.target.reset();
     toast(`Saqlandi. Zona: ${ZONE_UZ[r.zone]}${r.prev_zone && r.prev_zone !== r.zone ? ` (oldin: ${ZONE_UZ[r.prev_zone]})` : ""}`, 5000);
     load();
-  } catch (err) { toast("Xatolik: " + err.message, 6000); }
+  } catch (err) { toast(err.message, 6000); }
 });
 
-async function load() { P = await api(`/api/patients/${pid}`); render(); }
-(async () => { meta = await api("/api/meta"); await load(); })();
+async function openDoc() {
+  const docs = await api("/api/doctors");
+  document.getElementById("docSelect").innerHTML = docs.map(d => `<option value="${d.id}" ${d.id === P.doctor_id ? "selected" : ""}>${esc(d.full_name)} — ${esc(d.position || "")}, ${esc(d.district || "")}</option>`).join("");
+  document.getElementById("docDlg").showModal();
+}
+document.getElementById("docForm").addEventListener("submit", async e => {
+  if (e.submitter?.value !== "save") return;
+  e.preventDefault();
+  await api(`/api/patients/${pid}`, { method: "PATCH", body: { doctor_id: Number(document.getElementById("docSelect").value) } });
+  document.getElementById("docDlg").close(); toast("Shifokor almashtirildi"); load();
+});
+
+async function load() { P = await api(`/api/patients/${pid}`); document.title = `${P.full_name} — PeriZone`; render(); }
+document.addEventListener("pz:new-alerts", load);
+(async () => {
+  ({ me, meta } = await boot("patients"));
+  document.getElementById("obsIc").innerHTML = icon("activity");
+  try { await load(); } catch (e) { document.getElementById("root").innerHTML = `<div class="card">${emptyState(esc(e.message), "alert")}</div>`; }
+})();
 </script>
 </body>
 </html>

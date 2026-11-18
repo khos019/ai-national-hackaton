@@ -3,102 +3,210 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Perinatal Registr</title>
+<title>PeriZone — Bemorlar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-<div id="hdr"></div>
-<main class="grid">
+<div class="app" id="app">
+<main class="main">
+  <div class="page-head">
+    <div class="titles"><h1 id="title">Bemorlar</h1><div class="sub" id="sub"></div></div>
+    <div class="actions"><button class="btn primary" id="newBtn"></button></div>
+  </div>
+
   <div class="card">
-    <div class="hd"><h2>Perinatal yuqori xavf guruhi registri</h2>
-      <div class="filters">
-        <input id="q" placeholder="Ism yoki telefon…" style="width:200px">
-        <select id="district"><option value="">Barcha tumanlar</option></select>
-        <select id="kind"><option value="">Barchasi</option><option value="mother">Homiladorlar</option><option value="newborn">Chaqaloqlar</option></select>
-        <select id="zone"><option value="">Barcha zonalar</option><option value="red">Qizil</option><option value="yellow">Sariq</option><option value="green">Yashil</option></select>
-        <button class="primary" id="newBtn">+ Ro'yxatga olish</button>
-      </div>
+    <div class="card-h">
+      <div class="search" style="flex:1;min-width:220px"><input id="q" placeholder="Ism yoki telefon bo'yicha qidirish…"></div>
+      <select id="zone" style="width:auto"><option value="">Barcha zonalar</option><option value="red">🔴 Qizil</option><option value="yellow">🟡 Sariq</option><option value="green">🟢 Yashil</option></select>
+      <select id="kind" style="width:auto"><option value="">Barchasi</option><option value="mother">Homiladorlar</option><option value="newborn">Chaqaloqlar</option></select>
+      <select id="doctor" class="hidden" style="width:auto"><option value="">Barcha shifokorlar</option></select>
+      <span class="small muted" id="count"></span>
     </div>
-    <div class="bd flush table-wrap" style="max-height:none"><table>
-      <thead><tr><th>Zona</th><th>Bemor</th><th>Muddat / yosh</th><th>Tuman</th><th>Sabablar</th><th>Oxirgi ma'lumot</th><th>Telegram</th></tr></thead>
-      <tbody id="rows"></tbody></table></div>
+    <div class="card-b flush table-wrap">
+      <table><thead><tr><th>Bemor</th><th>Zona</th><th>Asosiy sabab</th><th class="owner-col hidden">Shifokor</th><th>Telegram</th><th>Obuna</th><th>Oxirgi ma'lumot</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6"><div class="skeleton"></div></td></tr></tbody></table>
+    </div>
   </div>
 </main>
+</div>
 
 <dialog id="dlg"><form method="dialog" id="form">
-  <div class="hd"><h2>Yangi bemorni ro'yxatga olish</h2></div>
-  <div class="bd grid">
-    <div class="seg" id="kindSeg"><button type="button" data-k="mother" class="on">🤰 Homilador ayol</button><button type="button" data-k="newborn">👶 Chaqaloq</button></div>
+  <div class="d-h"><div class="bubble blue" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center" id="dlgIcon"></div>
+    <div><h2>Yangi bemorni ro'yxatga olish</h2><div class="small muted">Ro'yxatdan so'ng bemor Telegram bot orqali o'z holatini yubora oladi</div></div></div>
+  <div class="d-b grid" style="gap:16px">
+    <div class="tabs" id="kindTabs"><button type="button" data-k="mother" class="on">🤰 Homilador ayol</button><button type="button" data-k="newborn">👶 Chaqaloq</button></div>
     <div class="form-grid">
-      <label>F.I.Sh.<input name="full_name" required minlength="3"></label>
-      <label>Tug'ilgan sana<input name="birth_date" type="date" required></label>
-      <label>Telefon<input name="phone" placeholder="+998 90 123 45 67" required></label>
-      <label>Tuman<select name="district_id" id="dDistrict" required></select></label>
-      <label style="grid-column:1/-1">Manzil<input name="address"></label>
+      <label class="field" style="grid-column:1/-1">F.I.Sh.<input name="full_name" required minlength="3" placeholder="Masalan: Dilnoza Karimova"></label>
+      <label class="field">Tug'ilgan sana<input name="birth_date" type="date" required></label>
+      <label class="field"><span id="phoneLabel">Telefon (Telegram'dagi raqami)</span><input name="phone" required placeholder="+998 90 123 45 67" inputmode="tel"></label>
+      <label class="field owner-field hidden">Mas'ul shifokor<select name="doctor_id" id="dDoctor"></select></label>
+      <label class="field" style="grid-column:1/-1">Manzil <span class="hint">(ixtiyoriy)</span><input name="address" placeholder="Mahalla, ko'cha, uy"></label>
     </div>
     <div class="form-grid" id="motherFields">
-      <label>Oxirgi hayz sanasi<input name="lmp_date" type="date"></label>
-      <label>Tug'ruqlar soni<input name="parity" type="number" min="0" max="20"></label>
+      <label class="field">Homiladorlik muddati, hafta<input name="weeks" type="number" min="2" max="42" placeholder="Masalan: 24"><span class="hint">yoki oxirgi hayz sanasini kiriting</span></label>
+      <label class="field">Oxirgi hayz sanasi<input name="lmp_date" type="date"></label>
+      <label class="field">Tug'ruqlar soni<input name="parity" type="number" min="0" max="20" placeholder="0"></label>
     </div>
-    <div class="form-grid" id="newbornFields" hidden>
-      <label>Tug'ilgandagi vazn (g)<input name="birth_weight_g" type="number" min="300" max="6500"></label>
-      <label>Gestatsiya (hafta)<input name="gestational_age_at_birth" type="number" min="22" max="44"></label>
-      <label>Apgar 5-daqiqa<input name="apgar5" type="number" min="0" max="10"></label>
+    <div class="callout info hidden" id="motherBox" style="flex-direction:column;gap:10px">
+      <div class="txt"><b>👩 Onasi</b> — chaqaloq onasiga bog'lanadi: Telegram'dan onasi holatini yuboradi, obuna umumiy bo'ladi.</div>
+      <div class="form-grid">
+        <label class="field" style="grid-column:1/-1">Onasini tanlang <span class="hint">ro'yxatdagi ayollar</span>
+          <select name="mother_id" id="motherSel"><option value="">— Onasi ro'yxatda yo'q (telefonni qo'lda kiriting) —</option></select></label>
+        <label class="field" id="deliveryField">Tug'ruq<select name="delivery"><option value="">— belgilanmagan —</option><option value="normal_delivery">Tabiiy tug'ruq</option><option value="cesarean">Kesar kesish</option><option value="preterm_birth">Muddatidan oldin</option></select>
+          <span class="hint">onasi kartasida «tug'ruqdan keyingi kuzatuv» boshlanadi</span></label>
+      </div>
     </div>
-    <div><div class="small muted" style="margin-bottom:6px">Anamnez xavf omillari</div><div class="checks" id="rf"></div></div>
+    <div class="form-grid hidden" id="newbornFields">
+      <label class="field">Tug'ilgandagi vazn, g<input name="birth_weight_g" type="number" min="300" max="6500" placeholder="3200"></label>
+      <label class="field">Necha haftada tug'ilgan<input name="gestational_age_at_birth" type="number" min="22" max="44" placeholder="39"></label>
+      <label class="field">Apgar (5-daqiqa)<input name="apgar5" type="number" min="0" max="10" placeholder="8"></label>
+    </div>
+    <div><div class="small" style="font-weight:600;margin-bottom:8px">Anamnez xavf omillari <span class="muted" style="font-weight:400">— yosh, kam vazn va chala tug'ilish avtomatik hisoblanadi</span></div><div class="checks" id="rf"></div></div>
+    <label class="check" style="border-color:var(--primary)"><input type="checkbox" name="consent" required>
+      <span>Bemor shaxsiy va tibbiy ma'lumotlarini qayta ishlash hamda Telegram orqali kuzatuvga <b>roziligini berdi</b></span></label>
   </div>
-  <div class="ft"><button value="cancel" formnovalidate>Bekor qilish</button><button class="primary" value="save">Ro'yxatga olish</button></div>
+  <div class="d-f"><button class="btn" value="cancel" formnovalidate>Bekor qilish</button><button class="btn primary" value="save">Ro'yxatga olish</button></div>
 </form></dialog>
 
-<script src="/assets/common.js"></script>
+<dialog id="doneDlg">
+  <div class="d-h"><div class="bubble green" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center" id="doneIcon"></div>
+    <div><h2 id="doneTitle">Ro'yxatga olindi</h2><div class="small muted" id="doneSub"></div></div></div>
+  <div class="d-b">
+    <div class="callout info"><div class="txt"><b>Bemorga ayting:</b>
+      <ol style="margin:6px 0 0;padding-left:18px">
+        <li>Telegram'da <b id="botName"></b> botini oching (yoki havola orqali)</li>
+        <li>«Start» tugmasini bosing</li>
+        <li>«📱 Telefon raqamni yuborish» tugmasini bosing — <span id="donePhone"></span></li>
+      </ol>Shundan so'ng u har kuni holatini yubora oladi, xavfli belgi bo'lsa sizga darhol xabar keladi.</div></div>
+    <div class="row" style="margin-top:12px"><code id="botLink" style="flex:1;overflow:hidden;text-overflow:ellipsis"></code><button class="btn sm" id="copyLink"></button></div>
+  </div>
+  <div class="d-f"><button class="btn" onclick="this.closest('dialog').close()">Yopish</button><a class="btn primary" id="openCard">Bemor kartasini ochish</a></div>
+</dialog>
+
+<script src="/assets/app.js"></script>
 <script>
-document.getElementById("hdr").innerHTML = headerHTML("patients");
-let meta, kind = "mother";
+let meta, me, kind = "mother";
 const $ = id => document.getElementById(id);
+$("newBtn").innerHTML = icon("plus") + "Yangi bemor";
+document.querySelector(".search").insertAdjacentHTML("afterbegin", icon("search", "sm"));
+$("dlgIcon").innerHTML = icon("plus"); $("doneIcon").innerHTML = icon("check");
+$("copyLink").innerHTML = icon("copy", "sm") + "Nusxa";
 
 async function load() {
   const params = new URLSearchParams();
-  for (const k of ["district", "kind", "zone", "q"]) { const v = $(k).value; if (v) params.set(k === "district" ? "district_id" : k, v); }
+  for (const k of ["zone", "kind", "q", "doctor"]) { const v = $(k).value.trim(); if (v) params.set(k === "doctor" ? "doctor_id" : k, v); }
   const list = await api(`/api/patients?${params}`);
-  $("rows").innerHTML = list.map(p => `<tr onclick="location.href='/patient.html?id=${p.id}'">
-    <td>${zoneChip(p.zone)}</td><td><b>${esc(p.full_name)}</b><div class="small muted">${KIND_UZ[p.kind]} · ${esc(p.phone || "")}</div></td>
-    <td class="num">${p.kind === "mother" ? (p.gestational_weeks ?? "—") + " hafta" : p.age_days + " kun"}</td>
-    <td>${esc(p.district)}</td><td class="small">${p.top_reasons.map(esc).join("<br>")}</td>
-    <td class="small muted">${ago(p.last_observation_at)}</td><td>${p.telegram_linked ? "✅" : "—"}</td></tr>`).join("")
-    || `<tr><td colspan="7" class="empty">Topilmadi</td></tr>`;
+  const owner = me.role === "owner";
+  $("count").textContent = `${list.length} ta bemor`;
+  $("rows").innerHTML = list.map(p => `<tr class="click" onclick="location.href='/patient.html?id=${p.id}'">
+    <td><div class="person">${avatar(p.full_name, p.zone)}<div><div class="nm">${esc(p.full_name)}</div><div class="mt">${patientMeta(p)} · ${esc(p.phone || "")}</div></div></div></td>
+    <td>${zoneChip(p.zone)}</td>
+    <td class="reasons-cell">${p.top_reasons.slice(0, 2).map(r => `<div title="${esc(r)}">${esc(r)}</div>`).join("") || '<span class="faint">Me\'yorda</span>'}</td>
+    ${owner ? `<td class="small">${esc(p.doctor || "—")}</td>` : ""}
+    <td>${p.telegram_linked ? '<span class="badge ok">ulangan</span>' : '<span class="badge warn">ulanmagan</span>'}</td>
+    <td>${p.premium ? `<span class="badge" style="background:var(--yellow-soft);color:var(--yellow-strong)">${icon("star", "sm")} Premium</span>` : '<span class="badge">bepul</span>'}</td>
+    <td class="small muted">${ago(p.last_observation_at)}</td></tr>`).join("")
+    || `<tr><td colspan="7">${emptyState("Bemor topilmadi. «Yangi bemor» tugmasi orqali qo'shing.", "users")}</td></tr>`;
 }
 
-function renderRF() {
-  const rfs = meta[kind].risk_factors;
-  $("rf").innerHTML = Object.entries(rfs).filter(([, s]) => !s.auto).map(([c, s]) =>
-    `<label><input type="checkbox" name="rf" value="${c}">${esc(s.label)}</label>`).join("");
-  $("motherFields").hidden = kind !== "mother"; $("newbornFields").hidden = kind !== "newborn";
+let mothers = [];
+async function loadMothers() {
+  mothers = await api("/api/patients?kind=mother");
+  $("motherSel").innerHTML = `<option value="">— Onasi ro'yxatda yo'q (telefonni qo'lda kiriting) —</option>` +
+    mothers.map(m => `<option value="${m.id}">${esc(m.full_name)} · ${esc(m.phone || "")}${m.postpartum_days != null ? " · tug'ruqdan keyin" : m.gestational_weeks != null ? " · " + m.gestational_weeks + " hafta" : ""}</option>`).join("");
+}
+function syncMother() {
+  const m = mothers.find(x => String(x.id) === $("motherSel").value);
+  const phone = document.querySelector('#form [name="phone"]');
+  const linked = kind === "newborn" && m;
+  phone.required = !linked;
+  phone.disabled = !!linked;
+  if (linked) phone.value = m.phone || "";
+  $("deliveryField").classList.toggle("hidden", !linked);
+  if (linked && m.doctor_id && me.role === "owner") $("dDoctor").value = String(m.doctor_id);
+  if (linked && !document.querySelector('#form [name="full_name"]').value && m.full_name.split(" ")[1])
+    document.querySelector('#form [name="full_name"]').placeholder = "Masalan: Ali " + m.full_name.split(" ")[1].replace(/a$/, "");
+}
+function renderForm() {
+  $("rf").innerHTML = Object.entries(meta[kind].risk_factors).filter(([, s]) => !s.auto)
+    .map(([c, s]) => `<label class="check"><input type="checkbox" name="rf" value="${c}">${esc(s.label)}</label>`).join("");
+  $("motherFields").classList.toggle("hidden", kind !== "mother");
+  $("newbornFields").classList.toggle("hidden", kind !== "newborn");
+  $("motherBox").classList.toggle("hidden", kind !== "newborn");
+  syncMother();
+  $("phoneLabel").textContent = kind === "mother" ? "Telefon (Telegram'dagi raqami)" : "Onasining telefoni (Telegram)";
 }
 
-document.querySelectorAll("#kindSeg button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("#kindSeg button").forEach(x => x.classList.remove("on")); b.classList.add("on");
-  kind = b.dataset.k; renderRF();
+document.querySelectorAll("#kindTabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#kindTabs button").forEach(x => x.classList.toggle("on", x === b));
+  kind = b.dataset.k; renderForm();
 });
-$("newBtn").onclick = () => { renderRF(); $("dlg").showModal(); };
+$("newBtn").onclick = async () => { $("form").reset(); await loadMothers(); renderForm(); $("dlg").showModal(); };
+$("motherSel").onchange = syncMother;
+async function openNewborn(motherId) {
+  $("form").reset(); await loadMothers();
+  kind = "newborn";
+  document.querySelectorAll("#kindTabs button").forEach(x => x.classList.toggle("on", x.dataset.k === "newborn"));
+  $("motherSel").value = String(motherId || "");
+  renderForm(); $("dlg").showModal();
+}
+
 $("form").addEventListener("submit", async e => {
   if (e.submitter?.value !== "save") return;
   e.preventDefault();
-  const f = new FormData(e.target), body = { kind, risk_factors: f.getAll("rf") };
-  const nums = ["district_id", "parity", "birth_weight_g", "gestational_age_at_birth", "apgar5"];
-  for (const [k, v] of f.entries()) { if (k === "rf" || v === "") continue; body[k] = nums.includes(k) ? Number(v) : v; }
+  const f = new FormData(e.target);
+  const body = { kind, risk_factors: f.getAll("rf"), consent: f.get("consent") === "on" };
+  const nums = ["doctor_id", "parity", "birth_weight_g", "gestational_age_at_birth", "apgar5"];  // mother_id handled below
+  for (const [k, v] of f.entries()) {
+    if (["rf", "consent", "weeks"].includes(k) || v === "") continue;
+    body[k] = nums.includes(k) ? Number(v) : v;
+  }
+  if (kind === "mother" && !body.lmp_date && f.get("weeks")) {
+    const d = new Date(); d.setDate(d.getDate() - Number(f.get("weeks")) * 7); body.lmp_date = d.toISOString().slice(0, 10);
+  }
+  if (kind === "newborn") {
+    delete body.lmp_date; delete body.parity;
+    if (body.mother_id) body.mother_id = Number(body.mother_id); else { delete body.mother_id; delete body.delivery; }
+    if (!body.delivery) delete body.delivery;
+  } else { delete body.mother_id; delete body.delivery; }
   try {
     const p = await api("/api/patients", { method: "POST", body });
-    location.href = `/patient.html?id=${p.id}`;
-  } catch (err) { toast("Xatolik: " + err.message, 6000); }
+    $("dlg").close();
+    $("doneTitle").textContent = `${p.full_name} ro'yxatga olindi`;
+    $("doneSub").innerHTML = `Zona: ${zoneChip(p.zone)} · Shifokor: ${esc(p.doctor || "")}`;
+    const bot = meta.bot_username || "perizone_bot";
+    $("botName").textContent = "@" + bot; $("donePhone").textContent = p.phone || "";
+    $("botLink").textContent = `https://t.me/${bot}`;
+    $("copyLink").onclick = () => copyText(`https://t.me/${bot}`);
+    $("openCard").href = `/patient.html?id=${p.id}`;
+    $("doneDlg").showModal();
+    load();
+  } catch (err) { toast(err.message, 6000); }
 });
+
 let t; $("q").oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
-["district", "kind", "zone"].forEach(id => $(id).onchange = load);
+["zone", "kind", "doctor"].forEach(id => $(id).onchange = load);
 
 (async () => {
-  meta = await api("/api/meta");
-  const opts = meta.districts.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("");
-  $("district").insertAdjacentHTML("beforeend", opts); $("dDistrict").innerHTML = opts;
-  const z = new URLSearchParams(location.search).get("zone"); if (z) $("zone").value = z;
+  ({ me, meta } = await boot("patients"));
+  $("title").textContent = me.role === "owner" ? "Bemorlar" : "Bemorlarim";
+  $("sub").textContent = me.role === "owner" ? "Barcha tumanlardagi registr" : "Sizga biriktirilgan homilador ayollar va chaqaloqlar";
+  const qs = new URLSearchParams(location.search);
+  if (qs.get("zone")) $("zone").value = qs.get("zone");
+  if (me.role === "owner") {
+    const docs = await api("/api/doctors");
+    const opts = docs.map(d => `<option value="${d.id}">${esc(d.full_name)} — ${esc(d.district || "")}</option>`).join("");
+    $("doctor").insertAdjacentHTML("beforeend", opts); $("doctor").classList.remove("hidden");
+    $("dDoctor").innerHTML = opts;
+    document.querySelectorAll(".owner-col, .owner-field").forEach(e => e.classList.remove("hidden"));
+    $("dDoctor").required = true;
+    if (qs.get("doctor")) $("doctor").value = qs.get("doctor");
+  }
+  if (qs.get("new") === "newborn") openNewborn(qs.get("mother"));
+  else if (qs.get("new")) $("newBtn").click();
   load();
 })();
 </script>

@@ -31,7 +31,7 @@ class Settings:
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     # Seconds to wait for acknowledgement before escalating to level 1, then level 2.
     # Production would be e.g. "1800,3600"; demo default is short so judges can see it.
-    escalation_seconds: list[int] = _ints(os.getenv("ESCALATION_SECONDS", "90,180"))
+    escalation_seconds: list[int] = _ints(os.getenv("ESCALATION_SECONDS", "120"))
     scheduler_interval_seconds: int = int(os.getenv("SCHEDULER_INTERVAL_SECONDS", "10"))
     model_path: Path = ROOT_DIR / "ml" / "models" / "maternal_risk.joblib"
     rules_dir: Path = Path(__file__).resolve().parent / "rules"
@@ -39,6 +39,10 @@ class Settings:
     # ML probability of "high" above which a green patient is raised to yellow.
     ml_high_threshold: float = float(os.getenv("ML_HIGH_THRESHOLD", "0.6"))
     emergency_phone: str = "103"
+    secret_key: str = os.getenv("SECRET_KEY", "perizone-dev-secret-change-me")
+    # DEV_LOGIN=1 returns the login code in the API response (tests / offline demo only!)
+    dev_login: bool = os.getenv("DEV_LOGIN", "0") == "1"
+    bot_username: str = os.getenv("TELEGRAM_BOT_USERNAME", "")
 
 
 settings = Settings()

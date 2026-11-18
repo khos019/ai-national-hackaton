@@ -97,3 +97,21 @@ def test_newborn_fast_breathing_red():
     healthy = {"kind": "newborn", "birth_weight_g": 3400, "gestational_age_at_birth": 39, "apgar5": 9}
     r = newborn.evaluate(healthy, [obs(resp_rate=64, temperature=36.9)], NOW)
     assert r.zone == "red"
+
+
+def test_fetal_movements_count_to_ten():
+    assert mother.evaluate(M, [obs(source="self", fetal_movements=12)], NOW).zone == "green"
+    assert mother.evaluate(M, [obs(source="self", fetal_movements=8)], NOW).zone == "yellow"
+    r = mother.evaluate(M, [obs(source="self", fetal_movements=3)], NOW)
+    assert r.zone == "red" and r.red_findings[0].code == "param:fetal_movements"
+
+
+def test_headache_plus_blurred_vision_is_red_danger_sign():
+    r = mother.evaluate(M, [obs(source="self", symptoms=["severe_headache", "blurred_vision"])], NOW)
+    assert r.zone == "red"
+    combo = next(f for f in r.findings if f.code == "combo:severe_headache_vision")
+    assert combo.category == "symptom" and combo.self_reported
+
+
+def test_headache_alone_stays_yellow():
+    assert mother.evaluate(M, [obs(source="self", symptoms=["severe_headache"])], NOW).zone == "yellow"

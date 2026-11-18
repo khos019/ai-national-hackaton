@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone — Qanday ishlaydi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  section.blk { margin-bottom: 30px; }
+  section.blk > h2 { font-size: 19px; margin-bottom: 4px; }
+  section.blk > .lead { color: var(--muted); margin-bottom: 16px; }
+  .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; align-items: stretch; }
+  .flow .node { padding: 16px; text-align: center; position: relative; }
+  .flow .node .ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; margin: 0 auto 10px; }
+  .flow .node b { display: block; } .flow .node span { color: var(--muted); font-size: 12.5px; }
+  .flow .node:not(:last-child)::after { content: "→"; position: absolute; right: -8px; top: 34px; color: var(--faint); font-size: 18px; }
+  @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } .flow .node::after { display: none; } }
+  .roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 900px) { .roles { grid-template-columns: 1fr; } }
+  .role { padding: 18px; } .role ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13.5px; }
+  .esc-line { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 900px) { .esc-line { grid-template-columns: 1fr 1fr; } }
+  .esc-step { padding: 14px; border-left: 4px solid var(--primary); }
+  .esc-step .t { font-size: 11.5px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .05em; }
+  .thr th, .thr td { padding: 9px 12px; font-size: 13px; }
+  .chatdemo { display: grid; gap: 8px; max-width: 520px; }
+  .chatdemo .m { padding: 10px 13px; border-radius: 14px; font-size: 13.5px; max-width: 88%; }
+  .chatdemo .u { background: var(--surface-3); justify-self: start; border-bottom-left-radius: 4px; }
+  .chatdemo .a { background: var(--primary-soft); justify-self: end; border-bottom-right-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<main class="main" style="max-width:1180px">
+  <div class="page-head"><div class="titles"><h1>Qanday ishlaydi</h1>
+    <div class="sub">PeriZone — homilador ayollar va chaqaloqlarni rangli zonalar orqali kuzatish va xavfni o'z vaqtida aniqlash tizimi</div></div></div>
+
+  <section class="blk">
+    <h2>1. To'rt qadamda</h2><div class="lead">Ma'lumot qayerdan kelmasin — bir xil yo'ldan o'tadi va bir necha soniyada shifokorga yetadi.</div>
+    <div class="card flow" id="flow"></div>
+  </section>
+
+  <section class="blk">
+    <h2>2. Ranglar nimani anglatadi</h2><div class="lead">Zona har bir yangi ma'lumotdan keyin qayta hisoblanadi. Shifokor uchun har bir rangning aniq harakat rejasi bor.</div>
+    <div class="grid cols-3" id="zones"></div>
+  </section>
+
+  <section class="blk">
+    <h2>3. Zona qanday aniqlanadi</h2><div class="lead">Zona — quyidagilarning <b>eng yomoni</b>. Har bir sabab bemor kartasida manbasi bilan ko'rsatiladi, shuning uchun tizim «qora quti» emas.</div>
+    <div class="grid cols-2-even">
+      <div class="card"><div class="card-b prose" style="padding-top:18px"><ul>
+        <li><b>Ko'rsatkichlar</b> — bosim, puls, harorat, SpO2, gemoglobin, qand, siydikda oqsil, homila harakati</li>
+        <li><b>Xavf belgilari</b> — JSST ro'yxati: qon ketishi, tutqanoq, kuchli bosh og'rig'i va boshqalar</li>
+        <li><b>Kombinatsiyalar</b> — masalan, yuqori bosim + oqsil = preeklampsiya; isitma + taxikardiya = sepsis shubhasi</li>
+        <li><b>Trendlar</b> — bosim 3 haftada 15 mmHg ga o'sdi, gemoglobin pasaymoqda (qiymat hali «me'yorda» bo'lsa ham)</li>
+        <li><b>Anamnez</b> — egizak homila, oldin kesar kesish, surunkali kasalliklar → kamida sariq</li>
+        <li><b>MEOWS qoidasi</b> — bir vaqtda 3 ta sariq ko'rsatkich (chaqaloqda 2 ta) → qizil</li>
+        <li><b>AI bahosi</b> — maslahat: yashilni sariqqa ko'tarishi mumkin, o'zi qizil yaratmaydi</li></ul></div></div>
+      <div class="card"><div class="card-h"><h2>Asosiy chegaralar (onalar)</h2><span class="sub">namunaviy qiymatlar</span></div>
+        <div class="card-b flush"><table class="thr"><thead><tr><th>Ko'rsatkich</th><th><span class="dot yellow"></span> Sariq</th><th><span class="dot red"></span> Qizil</th></tr></thead><tbody id="thr"></tbody></table></div></div>
+    </div>
+  </section>
+
+  <section class="blk">
+    <h2>4. Xabarnoma va eskalatsiya</h2><div class="lead">Hech bir qizil holat e'tiborsiz qolmasligi uchun.</div>
+    <div class="esc-line" id="esc"></div>
+  </section>
+
+  <section class="blk">
+    <h2>5. Ayollar uchun Telegram bot va AI yordamchi</h2><div class="lead">Bot faqat ayollar uchun. Shifokorlar saytda ishlaydi.</div>
+    <div class="grid cols-2-even">
+      <div class="card"><div class="card-b prose" style="padding-top:18px">
+        <ol style="padding-left:18px;margin:0">
+          <li>Shifokor ayolni saytda ro'yxatga oladi (rozilik bilan)</li>
+          <li>Ayol botni ochadi → «Start» → telefon raqamini yuboradi</li>
+          <li>Har kuni tugmalar orqali yoki <b>o'z so'zlari bilan</b> holatini yozadi</li>
+          <li>AI yordamchi matndan belgilar va o'lchovlarni ajratadi → zona hisoblanadi → shifokor ko'radi</li>
+          <li>Ayol darhol tushunarli javob oladi; xavf bo'lsa — «103 ga qo'ng'iroq qiling»</li>
+        </ol>
+        <div class="callout" style="margin-top:14px"><div class="txt small"><b>Xavfsizlik:</b> AI tashxis qo'ymaydi va dori tavsiya qilmaydi. Xavf belgilari AI'dan qat'i nazar kalit so'zlar bo'yicha ham tekshiriladi — model ishlamasa ham shoshilinch holat o'tkazib yuborilmaydi.</div></div>
+      </div></div>
+      <div class="card"><div class="card-h"><span id="botIc"></span><h2>Misol suhbat</h2></div><div class="card-b"><div class="chatdemo">
+        <div class="m u">Kechadan beri boshim qattiq og'riyapti, ko'z oldim qorong'ilashyapti. Bosimim 150/100</div>
+        <div class="m a">Darhol 103 ga qo'ng'iroq qiling yoki tug'ruqxonaga boring. Bosh og'rig'i, ko'rish buzilishi va yuqori bosim birgalikda xavfli bo'lishi mumkin. Shifokoringizga xabar yuborildi.<br><br>🔴 Holatingiz: <b>Qizil</b> zona</div>
+        <div class="m u">Homiladorlikda nima yeyish foydali?</div>
+        <div class="m a">Sabzavot, meva, yormalar, sut mahsulotlari, go'sht va dukkaklilar foydali. Temir va foliy kislotani shifokor buyurgandek iching, ko'p suv iching...</div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section class="blk">
+    <h2>6. Rollar va kirish huquqlari</h2><div class="lead">Har kim faqat o'ziga kerakli ma'lumotni ko'radi.</div>
+    <div class="roles" id="roles"></div>
+  </section>
+
+  <section class="blk">
+    <h2>7. Ko'p beriladigan savollar</h2>
+    <div class="card"><div class="card-b" style="padding-top:6px" id="faq"></div></div>
+  </section>
+
+  <div class="callout yellow"><div class="txt small"><b>Muhim:</b> prototipdagi klinik chegaralar MEOWS, NEWTT2 va JSST tavsiyalariga asoslangan namunaviy qiymatlar. Amalda qo'llashdan oldin ular akusher-ginekologlar, neonatologlar va Sog'liqni saqlash vazirligi tomonidan tasdiqlanishi shart.</div></div>
+</main>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+$("botIc").innerHTML = icon("bot");
+(async () => {
+  const { meta } = await boot("guide");
+  const esc_min = Math.round((meta.escalation_seconds?.[0] || 120) / 60);
+  $("flow").innerHTML = [
+    ["users", "blue", "Ro'yxatga olish", "Shifokor ayol yoki chaqaloqni saytda ro'yxatga oladi"],
+    ["telegram", "blue", "Kuzatuv", "Ayol botda o'zi yuboradi, shifokor klinik o'lchov kiritadi"],
+    ["activity", "yellow", "Avtomatik baholash", "Qoidalar + trendlar + AI → Qizil / Sariq / Yashil"],
+    ["bell", "red", "Xabarnoma va chora", "Shifokorga darhol xabar, javob bo'lmasa — administratorga"],
+  ].map(([i, c, b, s]) => `<div class="node"><div class="ic bubble ${c}">${icon(i)}</div><b>${b}</b><span>${s}</span></div>`).join("");
+
+  const ex = { red: ["Qon ketishi, tutqanoq", "Bosim ≥160/110", "Bosim ≥140 + oqsil yoki bosh og'rig'i", "Homila harakati 2 soatda 6 dan kam", "Chaqaloq emmayapti, tez nafas"],
+               yellow: ["Bosim 140–159 / 90–109", "Gemoglobin 70–99 g/L", "Homila harakati 6–9", "Bosim barqaror o'smoqda", "Egizak, oldin kesar kesish"],
+               green: ["Barcha ko'rsatkichlar me'yorda", "Xavf belgilari yo'q", "Trend barqaror"] };
+  const freq = { red: "har kuni", yellow: `har ${meta.mother.checkin_days.yellow} kunda`, green: `har ${meta.mother.checkin_days.green} kunda` };
+  $("zones").innerHTML = ["red", "yellow", "green"].map(z => `<div class="card zone-card ${z}">
+    <div class="row"><h2>${zoneChip(z)}</h2></div>
+    <h4>Misollar</h4><ul>${ex[z].map(x => `<li>${x}</li>`).join("")}</ul>
+    <h4>Shifokor nima qiladi</h4><ul>${ZONE_ACTIONS[z].items.map(x => `<li>${x}</li>`).join("")}</ul>
+    <h4>Ma'lumot kutiladi</h4><ul><li>${freq[z]} — kelmasa, ogohlantirish</li></ul></div>`).join("");
+
+  const rules = await api("/api/rules/mother");
+  const show = ["sbp", "dbp", "hemoglobin", "glucose", "temperature", "proteinuria", "fetal_movements", "heart_rate"];
+  const op = b => [["gte", "≥"], ["lt", "<"]].filter(([k]) => b[k] != null).map(([k, s]) => `${s} ${b[k]}`).join("");
+  $("thr").innerHTML = show.map(k => {
+    const p = rules.parameters[k]; if (!p) return "";
+    const fmt = b => p.value_labels && b.gte != null ? "≥ " + p.value_labels[b.gte] : op(b);
+    const y = p.bands.filter(b => b.zone === "yellow").map(fmt).join(" yoki "), r = p.bands.filter(b => b.zone === "red").map(fmt).join(" yoki ");
+    return `<tr><td><b>${esc(p.label)}</b> <span class="faint tiny">${esc(p.unit || "")}</span></td><td>${y || "—"}</td><td>${r || "—"}</td></tr>`;
+  }).join("");
+
+  $("esc").innerHTML = [
+    ["0 soniya", "Yangi ma'lumot", "Zona qayta hisoblanadi, yomonlashsa xabarnoma yaratiladi"],
+    ["darhol", "Bemorning shifokori", "Saytda ovozli signal, ekran bildirishnomasi, SMS (qizil)"],
+    [`${esc_min} daqiqa`, "Javob bo'lmasa", "Administrator (egasi) ham xabardor qilinadi"],
+    ["har doim", "Audit jurnali", "Kim, qachon, qanday chora ko'rgani yoziladi"],
+  ].map(([t, b, s]) => `<div class="card esc-step"><div class="t">${t}</div><b>${b}</b><div class="small muted" style="margin-top:4px">${s}</div></div>`).join("");
+
+  $("roles").innerHTML = [
+    ["heart", "green", "Bemor (ayol)", "Telegram bot", ["O'z holatini yuboradi", "AI yordamchiga yozadi (Premium)", "Darhol maslahat va eslatmalar oladi", "Faqat o'z ma'lumotini ko'radi"]],
+    ["doctor", "blue", "Shifokor / patronaj", "Sayt", ["Bemorlarni ro'yxatga oladi", "Faqat o'z bemorlarini ko'radi va boshqaradi", "Xabarnomalarga javob beradi", "Klinik o'lchovlarni kiritadi"]],
+    ["shield", "yellow", "Administrator (egasi)", "Sayt", ["Barcha tumanlarni ko'radi", "Shifokorlarni qo'shadi va o'chiradi", "Bemorni boshqa shifokorga o'tkazadi", "Obunalarni boshqaradi"]],
+  ].map(([i, c, t, where, items]) => `<div class="card role"><div class="row"><div class="bubble ${c}" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center">${icon(i)}</div>
+    <div><h2>${t}</h2><div class="small muted">${where}</div></div></div><ul>${items.map(x => `<li>${x}</li>`).join("")}</ul></div>`).join("");
+
+  $("faq").innerHTML = [
+    ["Bemor botga kira olmayapti — «ro'yxatda yo'qsiz» deyapti", "Bemor kartasidagi telefon raqami uning Telegram raqami bilan bir xil ekanini tekshiring (oxirgi 9 raqam solishtiriladi)."],
+    ["Ayolning o'zi kiritgan ma'lumotiga ishonsa bo'ladimi?", "Xavf belgilari uchun — ha, ularni faqat ayolning o'zi biladi. Uyda o'lchangan bosim esa tekshiruvni boshlab beradi: faqat o'zi kiritgan qiymat qizil bo'lsa, «tasdiqlang» xabarnomasi keladi va klinik o'lchov uni tasdiqlaydi."],
+    ["Obuna to'lanmasa nima bo'ladi?", "Xavf belgilari, bosim va homila harakatini yuborish hamda shifokorga xabarnoma — har doim bepul. Premium AI yordamchi, haftalik hisobot va eslatmalarni qo'shadi."],
+    ["Shifokor parolini unutdi", "Administrator «Shifokorlar» sahifasida «Kirishni tiklash» tugmasini bosadi — yangi bir martalik kod yaratiladi."],
+    ["Ma'lumotlar qayerda saqlanadi?", "Shaxsga doir ma'lumotlar to'g'risidagi qonunga ko'ra — O'zbekistondagi serverlarda. AI'ga ism va telefon yuborilmaydi, faqat muddat va zona."],
+    ["Nega bemorlarimni boshqa shifokor ko'rmaydi?", "Har bir shifokor faqat o'ziga biriktirilgan bemorlarni ko'radi — bu tibbiy sir va shaxsiy ma'lumotlarni himoya qilish uchun."],
+  ].map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join("");
+})();
+</script>
+</body>
+</html>

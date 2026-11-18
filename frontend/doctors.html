@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone — Shifokorlar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div class="app" id="app">
+<main class="main">
+  <div class="page-head">
+    <div class="titles"><h1>Shifokorlar</h1><div class="sub">Shifokorlarni qo'shing, faoliyatini kuzating va kirish huquqini boshqaring</div></div>
+    <div class="actions"><button class="btn primary" id="addBtn"></button></div>
+  </div>
+  <div class="grid kpis" id="kpis" style="margin-bottom:18px"></div>
+  <div class="card">
+    <div class="card-h"><h2>Jamoa</h2><span class="spacer"></span>
+      <select id="district" style="width:auto"><option value="">Barcha tumanlar</option></select></div>
+    <div class="card-b flush table-wrap"><table>
+      <thead><tr><th>Shifokor</th><th>Tuman</th><th>Bemorlar</th><th>Qizil / Sariq</th><th>Javobsiz</th><th>Holat</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7"><div class="skeleton"></div></td></tr></tbody></table></div>
+  </div>
+</main>
+</div>
+
+<dialog id="addDlg"><form method="dialog" id="addForm">
+  <div class="d-h"><div class="bubble blue" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center" id="addIc"></div>
+    <div><h2>Yangi shifokor qo'shish</h2><div class="small muted">Shifokor bir martalik taklif kodi bilan o'zi parol o'rnatadi</div></div></div>
+  <div class="d-b form-grid">
+    <label class="field" style="grid-column:1/-1">F.I.Sh.<input name="full_name" required minlength="3" placeholder="Masalan: Gulnora Tosheva"></label>
+    <label class="field">Telefon<input name="phone" required inputmode="tel" placeholder="+998 90 123 45 67"></label>
+    <label class="field">Tuman<select name="district_id" id="dDistrict" required></select></label>
+    <label class="field" style="grid-column:1/-1">Lavozim<select name="position"><option>Akusher-ginekolog</option><option>Patronaj hamshirasi</option><option>Oilaviy shifokor</option><option>Neonatolog</option><option>Pediatr</option></select></label>
+  </div>
+  <div class="d-f"><button class="btn" value="cancel" formnovalidate>Bekor qilish</button><button class="btn primary" value="save">Qo'shish</button></div>
+</form></dialog>
+
+<dialog id="codeDlg">
+  <div class="d-h"><div class="bubble green" style="width:40px;height:40px;border-radius:12px;display:grid;place-items:center" id="codeIc"></div>
+    <div><h2 id="codeTitle"></h2><div class="small muted">Bu ma'lumotni shifokorga yuboring (SMS yoki messenjer orqali)</div></div></div>
+  <div class="d-b grid" style="gap:14px">
+    <div style="text-align:center;padding:18px;border:2px dashed var(--border-strong);border-radius:14px">
+      <div class="small muted">Bir martalik taklif kodi</div>
+      <div id="codeVal" style="font-size:30px;font-weight:800;letter-spacing:.18em;margin-top:4px"></div></div>
+    <div class="row"><code id="codeLink" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></code><button class="btn sm" id="copyLink"></button></div>
+    <div class="callout info"><div class="txt small"><b>Shifokor nima qiladi:</b> havolani ochadi (yoki «Hisobni faollashtirish» sahifasiga kiradi) → kod va telefon raqamini kiritadi → o'ziga parol o'rnatadi. Shundan so'ng telefon + parol bilan kiradi.</div></div>
+  </div>
+  <div class="d-f"><button class="btn" id="copyMsg"></button><button class="btn primary" onclick="this.closest('dialog').close()">Tayyor</button></div>
+</dialog>
+
+<script src="/assets/app.js"></script>
+<script>
+let meta, staff = [];
+const $ = id => document.getElementById(id);
+$("addBtn").innerHTML = icon("plus") + "Shifokor qo'shish";
+$("addIc").innerHTML = icon("doctor"); $("codeIc").innerHTML = icon("key");
+$("copyLink").innerHTML = icon("copy", "sm") + "Havola"; $("copyMsg").innerHTML = icon("copy", "sm") + "Xabar matnini nusxalash";
+
+function kpi(ic, bubble, label, value, sub) {
+  return `<div class="card kpi"><div class="bubble ${bubble}">${icon(ic)}</div><div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div></div>`;
+}
+async function load() {
+  staff = await api("/api/staff");
+  const d = $("district").value;
+  const docs = staff.filter(s => s.role === "doctor" && (!d || String(s.district_id) === d));
+  const all = staff.filter(s => s.role === "doctor");
+  $("kpis").innerHTML =
+    kpi("doctor", "blue", "Shifokorlar", all.length, `${all.filter(s => s.activated).length} faollashtirgan`) +
+    kpi("users", "green", "Biriktirilgan bemorlar", all.reduce((a, s) => a + s.patients, 0), "barcha tumanlar") +
+    kpi("bell", "red", "Javobsiz xabarnomalar", all.reduce((a, s) => a + s.open_alerts, 0), "hozir") +
+    kpi("baby", "yellow", "Chaqaloqlar", all.reduce((a, s) => a + (s.newborns || 0), 0), "ro'yxatdagi");
+  $("rows").innerHTML = docs.map(s => `<tr>
+    <td><div class="person">${avatar(s.full_name, "blue")}<div><div class="nm">${esc(s.full_name)}</div><div class="mt">${esc(s.position || "")}</div><div class="mt">${esc(s.phone || "")}</div></div></div></td>
+    <td>${esc(s.district || "—")}</td>
+    <td><a href="/patients.html?doctor=${s.id}" class="num"><b>${s.patients}</b></a></td>
+    <td class="num"><span class="dot red"></span> ${s.red} &nbsp; <span class="dot yellow"></span> ${s.yellow}</td>
+    <td>${s.open_alerts ? `<span class="badge bad">${s.open_alerts}</span>` : '<span class="badge ok">0</span>'}</td>
+    <td>${!s.active ? '<span class="badge">o\'chirilgan</span>' : s.activated ? `<span class="badge ok">faol</span><div class="tiny faint">${s.last_login_at ? "kirgan: " + ago(s.last_login_at) : ""}</div>` : '<span class="badge warn">kod kutilmoqda</span>'}</td>
+    <td><div class="row" style="gap:4px;justify-content:flex-end;flex-wrap:nowrap">
+      ${!s.activated && s.link_code ? `<button class="btn sm" onclick='showCode(${JSON.stringify(s)})'>${icon("key", "sm")}Kod</button>` : ""}
+      <button class="btn sm ghost" onclick="resetAccess(${s.id})" title="Parolni o'chirib, yangi taklif kodi yaratish">Tiklash</button>
+      <button class="btn sm ghost" onclick="toggle(${s.id}, ${!s.active})">${s.active ? "O'chirish" : "Yoqish"}</button></div>
+    </td></tr>`).join("") || `<tr><td colspan="7">${emptyState("Shifokorlar yo'q. «Shifokor qo'shish» tugmasini bosing.", "doctor")}</td></tr>`;
+}
+
+function showCode(s) {
+  const link = location.origin + s.activation_path;
+  $("codeTitle").textContent = `${s.full_name} — kirish ma'lumotlari`;
+  $("codeVal").textContent = s.link_code;
+  $("codeLink").textContent = link;
+  $("copyLink").onclick = () => copyText(link);
+  $("copyMsg").onclick = () => copyText(`Assalomu alaykum, ${s.full_name}! PeriZone tizimiga kirish uchun havola: ${link}\nTaklif kodi: ${s.link_code}\nTelefon: ${s.phone}`);
+  $("codeDlg").showModal();
+}
+async function resetAccess(id) {
+  if (!confirm("Shifokorning paroli o'chiriladi va yangi taklif kodi yaratiladi. Davom etasizmi?")) return;
+  const r = await api(`/api/staff/${id}/new-code`, { method: "POST" });
+  await load();
+  showCode({ ...staff.find(s => s.id === id), ...r });
+}
+async function toggle(id, active) {
+  if (!active && !confirm("Shifokor tizimga kira olmaydi. Uning bemorlarini boshqa shifokorga o'tkazishni unutmang. O'chirasizmi?")) return;
+  await api(`/api/staff/${id}`, { method: "PATCH", body: { active } }); toast(active ? "Yoqildi" : "O'chirildi"); load();
+}
+$("addBtn").onclick = () => { $("addForm").reset(); $("addDlg").showModal(); };
+$("addForm").addEventListener("submit", async e => {
+  if (e.submitter?.value !== "save") return;
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target)); f.district_id = Number(f.district_id);
+  try { const s = await api("/api/staff", { method: "POST", body: f }); $("addDlg").close(); await load(); showCode(s); }
+  catch (err) { toast(err.message, 5000); }
+});
+$("district").onchange = load;
+(async () => {
+  ({ meta } = await boot("doctors", { ownerOnly: true }));
+  const opts = meta.districts.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("");
+  $("district").insertAdjacentHTML("beforeend", opts); $("dDistrict").innerHTML = opts;
+  load();
+})();
+</script>
+</body>
+</html>

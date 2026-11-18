@@ -11,8 +11,8 @@ from ..config import settings
 from ..timeutil import utcnow
 from . import notify as notifier
 
-LEVEL_ROLE = {0: "specialist", 1: "head", 2: "regional"}
-LEVEL_UZ = {0: "OvaBMU mutaxassisi", 1: "Tuman bosh shifokori", 2: "Viloyat"}
+LEVEL_UZ = {0: "Bemorning shifokori", 1: "Administrator (egasi)"}
+MAX_LEVEL = 1
 ACTIONS = {
     "called": "Bemorga qo'ng'iroq qilindi",
     "home_visit": "Uyga patronaj yuborildi",
@@ -34,18 +34,19 @@ def log_event(db: Session, alert: models.Alert, type_: str, actor: str | None = 
 
 
 def recipients(db: Session, alert: models.Alert) -> list[models.Staff]:
-    role = LEVEL_ROLE[alert.level]
-    q = select(models.Staff).where(models.Staff.role == role)
-    if role != "regional":
-        q = q.where(models.Staff.district_id == alert.patient.district_id)
-    return list(db.scalars(q))
+    """Level 0: the patient's own doctor. Level 1 (no answer in time, or no doctor): the owner(s)."""
+    doctor = alert.patient.doctor
+    if alert.level == 0 and doctor is not None and doctor.active is not False:
+        return [doctor]
+    return list(db.scalars(select(models.Staff).where(models.Staff.role == "owner",
+                                                      models.Staff.active.is_not(False))))
 
 
 def dispatch(db: Session, alert: models.Alert, now: datetime | None = None) -> None:
     for staff in recipients(db, alert):
         channel = notifier.send_alert(alert, staff)
         log_event(db, alert, "notified", actor=staff.full_name,
-                  detail=f"{LEVEL_UZ[alert.level]} · kanal: {channel}", at=now)
+                  detail=f"{LEVEL_UZ.get(alert.level, alert.level)} · kanal: {channel}", at=now)
 
 
 def create_alert(db: Session, patient: models.Patient, *, kind: str, zone: str, title: str,
@@ -127,13 +128,13 @@ def run_escalations(db: Session, now: datetime | None = None) -> int:
         )
     ).all()
     for alert in due:
-        if alert.level >= 2:
+        if alert.level >= MAX_LEVEL:
             alert.next_escalation_at = None
             continue
         alert.level += 1
         delay = _escalation_delay(alert.level)
         alert.next_escalation_at = now + delay if delay else None
-        log_event(db, alert, "escalated", detail=f"Javob berilmadi → {LEVEL_UZ[alert.level]}", at=now)
+        log_event(db, alert, "escalated", detail=f"Javob berilmadi → {LEVEL_UZ.get(alert.level, alert.level)}", at=now)
         dispatch(db, alert, now)
     return len(due)
 
