@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeriZone Monitoring</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main class="grid">
+  <div class="card"><div class="hd">
+    <h2>Tuman bo'yicha real vaqt monitoringi</h2>
+    <div class="filters">
+      <select id="district"><option value="">Barcha tumanlar</option></select>
+      <label class="small muted" style="display:flex;gap:6px;align-items:center">Men:
+        <input id="actor" style="width:190px" placeholder="Ism (audit uchun)"></label>
+      <span id="tg" class="badge"></span>
+      <span class="small muted" id="updated"></span>
+    </div>
+  </div></div>
+
+  <div class="grid cols-kpi" id="kpis"></div>
+
+  <div class="grid cols-main">
+    <div class="grid">
+      <div class="card">
+        <div class="hd"><h2>Diqqat talab qiluvchi bemorlar</h2>
+          <div class="filters">
+            <div class="seg" id="zoneSeg">
+              <button data-z="red" class="on">Qizil</button><button data-z="yellow">Sariq</button><button data-z="">Barchasi</button>
+            </div>
+            <div class="seg" id="kindSeg">
+              <button data-k="" class="on">Hammasi</button><button data-k="mother">Onalar</button><button data-k="newborn">Chaqaloqlar</button>
+            </div>
+          </div>
+        </div>
+        <div class="bd flush table-wrap"><table>
+          <thead><tr><th>Zona</th><th>Bemor</th><th>Muddat / yosh</th><th>Tuman</th><th>Asosiy sabablar</th><th>Oxirgi ma'lumot</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </div>
+      <div class="card"><div class="hd"><h2>Xarita</h2><span class="small muted">Rang — bemor zonasi</span></div><div id="map"></div></div>
+    </div>
+
+    <div class="grid" style="align-content:start">
+      <div class="card">
+        <div class="hd"><h2>Xabarnomalar</h2>
+          <div class="filters"><div class="seg" id="alertSeg"><button data-s="active" class="on">Faol</button><button data-s="">Barchasi</button></div></div>
+        </div>
+        <div class="alerts" id="alerts"></div>
+      </div>
+      <div class="card"><div class="hd"><h2>Tumanlar kesimida</h2></div><div class="bd bars" id="bars"></div></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/assets/common.js"></script>
+<script>
+document.getElementById("hdr").innerHTML = headerHTML("dash");
+const state = { district: "", zone: "red", kind: "", alertStatus: "active", seenAlerts: null, meta: null };
+const actorInput = document.getElementById("actor");
+actorInput.value = currentActor();
+actorInput.addEventListener("change", () => setActor(actorInput.value || "OvaBMU mutaxassisi"));
+
+function seg(id, key, attr) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove("on"));
+    b.classList.add("on"); state[key] = b.dataset[attr]; refresh();
+  });
+}
+seg("zoneSeg", "zone", "z"); seg("kindSeg", "kind", "k"); seg("alertSeg", "alertStatus", "s");
+document.getElementById("district").onchange = e => { state.district = e.target.value; refresh(); fitMap(); };
+
+// ---- map
+const map = L.map("map", { scrollWheelZoom: false }).setView([41.30, 69.27], 11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+function fitMap() {
+  const d = state.meta?.districts.find(x => String(x.id) === state.district);
+  if (d) map.setView([d.lat, d.lon], 13); else map.setView([41.30, 69.27], 11);
+}
+
+function kpi(cls, label, value, sub) {
+  return `<div class="card kpi ${cls}"><div class="label">${cls && cls !== "plain" ? `<span class="dot ${cls}"></span>` : ""}${label}</div>
+    <div class="value">${value}</div><div class="sub">${sub || ""}</div></div>`;
+}
+
+async function loadDashboard() {
+  const q = state.district ? `?district_id=${state.district}` : "";
+  const d = await api(`/api/dashboard${q}`);
+  const m = d.counts.mother, n = d.counts.newborn;
+  const total = m.red + m.yellow + m.green + n.red + n.yellow + n.green;
+  const ack = d.mean_ack_seconds == null ? "—" : d.mean_ack_seconds < 3600 ? `${Math.round(d.mean_ack_seconds / 60)} daq` : `${(d.mean_ack_seconds / 3600).toFixed(1)} soat`;
+  document.getElementById("kpis").innerHTML =
+    kpi("red", "Qizil zona", m.red + n.red, `${m.red} ona · ${n.red} chaqaloq`) +
+    kpi("yellow", "Sariq zona", m.yellow + n.yellow, `${m.yellow} ona · ${n.yellow} chaqaloq`) +
+    kpi("green", "Yashil zona", m.green + n.green, `${m.green} ona · ${n.green} chaqaloq`) +
+    kpi("plain", "Faol xabarnomalar", d.open_alerts, `${d.open_red_alerts} qizil · ${d.escalated_alerts} eskalatsiya`) +
+    kpi("plain", "O'rtacha javob vaqti", ack, `Jami registrda: ${total}`);
+  document.getElementById("bars").innerHTML = d.by_district.map(r => {
+    const t = r.red + r.yellow + r.green || 1;
+    return `<div class="row"><span>${esc(r.name)}</span><div class="bar">
+      <span class="r" style="width:${r.red / t * 100}%"></span><span class="y" style="width:${r.yellow / t * 100}%"></span><span class="g" style="width:${r.green / t * 100}%"></span></div>
+      <span class="small muted num">${r.red}/${t}</span></div>`;
+  }).join("") || `<div class="empty">Ma'lumot yo'q</div>`;
+  document.getElementById("updated").textContent = "Yangilandi: " + new Date().toLocaleTimeString();
+}
+
+async function loadPatients() {
+  const params = new URLSearchParams();
+  if (state.district) params.set("district_id", state.district);
+  if (state.kind) params.set("kind", state.kind);
+  const all = await api(`/api/patients?${params}`);
+  const list = state.zone ? all.filter(p => p.zone === state.zone) : all;
+  document.getElementById("rows").innerHTML = list.slice(0, 200).map(p => `
+    <tr onclick="location.href='/patient.html?id=${p.id}'">
+      <td>${zoneChip(p.zone)}</td>
+      <td><b>${esc(p.full_name)}</b><div class="small muted">${KIND_UZ[p.kind]} · ID ${p.id}</div></td>
+      <td class="num">${p.kind === "mother" ? (p.gestational_weeks != null ? p.gestational_weeks + " hafta" : "—") : (p.age_days + " kun")}</td>
+      <td>${esc(p.district)}</td>
+      <td class="small">${p.top_reasons.map(esc).join("<br>") || '<span class="muted">—</span>'}</td>
+      <td class="small muted">${ago(p.last_observation_at)}</td>
+    </tr>`).join("") || `<tr><td colspan="6" class="empty">Bu zonada bemor yo'q</td></tr>`;
+
+  layer.clearLayers();
+  const colors = { red: cssVar("--red"), yellow: cssVar("--yellow-dot"), green: cssVar("--green") };
+  for (const p of all) {
+    if (p.lat == null) continue;
+    L.circleMarker([p.lat, p.lon], { radius: p.zone === "red" ? 8 : 5, color: colors[p.zone], fillColor: colors[p.zone], fillOpacity: .75, weight: 1 })
+      .bindPopup(`<b>${esc(p.full_name)}</b><br>${ZONE_UZ[p.zone]} zona<br><a href="/patient.html?id=${p.id}">Kartani ochish</a>`)
+      .addTo(layer);
+  }
+}
+
+function alertHTML(a, isNew) {
+  const levels = ["", "Bosh shifokorga eskalatsiya", "Viloyatga eskalatsiya"];
+  const status = a.status === "open" ? "" : a.status === "acknowledged" ? `<span class="badge">qabul qildi: ${esc(a.acknowledged_by)}</span>` : `<span class="badge">yopilgan</span>`;
+  const acts = a.status === "resolved" ? "" : `<div class="acts">
+      ${a.status === "open" ? `<button class="sm primary" onclick="ack(${a.id})">✅ Qabul qildim</button>` : ""}
+      <button class="sm" onclick="act(${a.id},'called')">📞 Qo'ng'iroq</button>
+      <button class="sm" onclick="act(${a.id},'home_visit')">🏠 Patronaj</button>
+      <button class="sm" onclick="act(${a.id},'referred')">🏥 Perinatal markaz</button>
+      <button class="sm" onclick="act(${a.id},'verified_ok')">👌 Xavf yo'q</button></div>`;
+  return `<div class="alert ${a.zone} ${isNew ? "new" : ""}">
+    <div class="t"><span class="dot ${a.zone}"></span>${esc(a.title)} ${a.level ? `<span class="level">${levels[a.level]}</span>` : ""} ${status}</div>
+    <div class="small"><a href="/patient.html?id=${a.patient_id}">${esc(a.patient_name)}</a> · ${esc(a.district)} · ${ago(a.created_at)}</div>
+    <div class="m">${esc(a.message)}</div>${acts}</div>`;
+}
+
+async function loadAlerts() {
+  const params = new URLSearchParams({ limit: 60 });
+  if (state.alertStatus) params.set("status", state.alertStatus);
+  if (state.district) params.set("district_id", state.district);
+  const alerts = await api(`/api/alerts?${params}`);
+  const ids = new Set(alerts.map(a => a.id));
+  const fresh = state.seenAlerts ? alerts.filter(a => !state.seenAlerts.has(a.id)) : [];
+  if (fresh.some(a => a.zone === "red")) { beep(); toast("🔴 Yangi qizil xabarnoma: " + fresh[0].patient_name); }
+  document.getElementById("alerts").innerHTML = alerts.map(a => alertHTML(a, fresh.includes(a))).join("") || `<div class="empty">Faol xabarnoma yo'q 👌</div>`;
+  state.seenAlerts = new Set([...(state.seenAlerts || []), ...ids]);
+}
+
+async function ack(id) { await api(`/api/alerts/${id}/ack`, { method: "POST", body: { actor: currentActor() } }); toast("Qabul qilindi"); refresh(); }
+async function act(id, action) {
+  await api(`/api/alerts/${id}/action`, { method: "POST", body: { action, actor: currentActor() } });
+  toast(state.meta?.actions[action] || "Saqlandi"); refresh();
+}
+
+async function refresh() {
+  try { await Promise.all([loadDashboard(), loadPatients(), loadAlerts()]); }
+  catch (e) { toast("Xatolik: " + e.message); }
+}
+
+(async () => {
+  state.meta = await api("/api/meta");
+  const sel = document.getElementById("district");
+  state.meta.districts.forEach(d => sel.insertAdjacentHTML("beforeend", `<option value="${d.id}">${esc(d.name)}</option>`));
+  const tg = document.getElementById("tg");
+  tg.textContent = state.meta.telegram_enabled ? "Telegram: ulangan" : "Telegram: o'chiq (faqat panel)";
+  await refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ona Ilovasi</title>
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  .phone { max-width: 440px; margin: 0 auto; }
+  .big { font-size: 16px; padding: 12px 14px; width: 100%; justify-content: center; }
+  .result { padding: 16px; border-radius: 12px; }
+  .result.red { background: var(--red-bg); color: var(--red); }
+  .result.yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .result.green { background: var(--green-bg); color: var(--green); }
+  .result h3 { font-size: 17px; margin-bottom: 6px; }
+  .result p { color: var(--text); margin: 0; }
+  .checks label { font-size: 15px; padding: 10px 12px; }
+  .checks label:has(input:checked) { background: var(--accent-weak); border-color: var(--accent); }
+  .step { display: none; } .step.on { display: grid; gap: 14px; }
+  .hint { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<main class="phone grid">
+  <div class="card"><div class="bd step on" id="s1">
+    <h2 style="font-size:18px">Assalomu alaykum! 💙</h2>
+    <p class="muted" style="margin:0">Bu sahifa — homilador ayollar va yosh onalar o'z holatini har kuni yuborishi uchun. Telegram bot ham xuddi shunday ishlaydi.</p>
+    <label class="field">Telefon raqamingiz<input id="phone" class="big" inputmode="tel" placeholder="+998 90 123 45 67" style="text-align:left"></label>
+    <button class="primary big" id="go">Davom etish</button>
+    <div class="hint">Demo: <a href="#" id="demo">+998 90 123 45 67 (Malika Karimova)</a></div>
+  </div>
+
+  <div class="bd step" id="s2">
+    <div><div class="muted small">Kim uchun</div><h2 style="font-size:18px" id="who"></h2></div>
+    <div><b>Hozir quyidagilardan birortasi bormi?</b><div class="hint">Qizil nuqtali belgilar — xavfli, darhol yuboring.</div></div>
+    <div class="checks" id="sym" style="grid-template-columns:1fr"></div>
+    <details><summary><b>Uyda o'lchagan bo'lsangiz</b> <span class="hint">(ixtiyoriy)</span></summary>
+      <div class="form-grid" style="margin-top:10px" id="vitals"></div>
+      <div class="hint" style="margin-top:6px">Tonometr bilan o'tirgan holda, 5 daqiqa dam olgandan keyin o'lchang.</div>
+    </details>
+    <button class="primary big" id="send">📤 Yuborish</button>
+    <button class="big" id="allgood">👍 Hammasi yaxshi</button>
+  </div>
+
+  <div class="bd step" id="s3">
+    <div class="result" id="res"></div>
+    <a class="btn big" id="call" href="tel:103" style="display:none;background:var(--red);color:#fff;border-color:var(--red)">📞 103 ga qo'ng'iroq qilish</a>
+    <button class="big" id="again">Yana yuborish</button>
+  </div></div>
+</main>
+<script src="/assets/common.js"></script>
+<script>
+document.getElementById("hdr").innerHTML = headerHTML("mother");
+const $ = id => document.getElementById(id);
+let meta, patient;
+const VITALS = {
+  mother: [["sbp", "Yuqori bosim", "120"], ["dbp", "Pastki bosim", "80"], ["temperature", "Harorat °C", "36.6"], ["glucose", "Qand mmol/L", "5.0"], ["weight", "Vazn kg", "62"]],
+  newborn: [["temperature", "Harorat °C", "36.8"], ["weight", "Vazn kg", "3.4"]],
+};
+function show(id) { document.querySelectorAll(".step").forEach(s => s.classList.toggle("on", s.id === id)); }
+
+async function start() {
+  try {
+    patient = await api(`/api/self-report/lookup?phone=${encodeURIComponent($("phone").value)}`);
+    $("who").textContent = (patient.kind === "mother" ? "🤰 " : "👶 ") + patient.full_name;
+    const k = patient.kind;
+    $("sym").innerHTML = Object.entries(meta[k].symptoms).map(([c, s]) =>
+      `<label class="${s.zone === "red" ? "red-sign" : ""}"><input type="checkbox" value="${c}"><span class="dot ${s.zone}"></span>${esc(s.label)}</label>`).join("");
+    $("vitals").innerHTML = VITALS[k].map(([n, l, ph]) => `<label>${l}<input name="${n}" type="number" step="any" inputmode="decimal" placeholder="${ph}"></label>`).join("");
+    show("s2");
+  } catch (e) { toast(e.message, 6000); }
+}
+
+async function send(empty) {
+  const body = { patient_id: patient.id, symptoms: empty ? [] : [...document.querySelectorAll("#sym input:checked")].map(i => i.value) };
+  if (!empty) document.querySelectorAll("#vitals input").forEach(i => { if (i.value !== "") body[i.name] = Number(i.value); });
+  try {
+    const r = await api("/api/self-report", { method: "POST", body });
+    const a = r.advice;
+    $("res").className = "result " + a.level;
+    $("res").innerHTML = `<h3>${esc(a.title)}</h3><p>${esc(a.text)}</p>${a.reasons.length ? `<ul>${a.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+    $("call").style.display = a.level === "red" ? "inline-flex" : "none";
+    show("s3");
+  } catch (e) { toast("Xatolik: " + e.message, 6000); }
+}
+
+$("go").onclick = start;
+$("phone").onkeydown = e => { if (e.key === "Enter") start(); };
+$("demo").onclick = e => { e.preventDefault(); $("phone").value = "+998901234567"; start(); };
+$("send").onclick = () => send(false);
+$("allgood").onclick = () => send(true);
+$("again").onclick = () => { document.querySelectorAll("#sym input, #vitals input").forEach(i => { i.checked = false; if (i.type !== "checkbox") i.value = ""; }); show("s2"); };
+(async () => { meta = await api("/api/meta"); })();
+</script>
+</body>
+</html>

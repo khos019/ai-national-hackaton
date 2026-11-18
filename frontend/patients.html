@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perinatal Registr</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main class="grid">
+  <div class="card">
+    <div class="hd"><h2>Perinatal yuqori xavf guruhi registri</h2>
+      <div class="filters">
+        <input id="q" placeholder="Ism yoki telefon…" style="width:200px">
+        <select id="district"><option value="">Barcha tumanlar</option></select>
+        <select id="kind"><option value="">Barchasi</option><option value="mother">Homiladorlar</option><option value="newborn">Chaqaloqlar</option></select>
+        <select id="zone"><option value="">Barcha zonalar</option><option value="red">Qizil</option><option value="yellow">Sariq</option><option value="green">Yashil</option></select>
+        <button class="primary" id="newBtn">+ Ro'yxatga olish</button>
+      </div>
+    </div>
+    <div class="bd flush table-wrap" style="max-height:none"><table>
+      <thead><tr><th>Zona</th><th>Bemor</th><th>Muddat / yosh</th><th>Tuman</th><th>Sabablar</th><th>Oxirgi ma'lumot</th><th>Telegram</th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+  </div>
+</main>
+
+<dialog id="dlg"><form method="dialog" id="form">
+  <div class="hd"><h2>Yangi bemorni ro'yxatga olish</h2></div>
+  <div class="bd grid">
+    <div class="seg" id="kindSeg"><button type="button" data-k="mother" class="on">🤰 Homilador ayol</button><button type="button" data-k="newborn">👶 Chaqaloq</button></div>
+    <div class="form-grid">
+      <label>F.I.Sh.<input name="full_name" required minlength="3"></label>
+      <label>Tug'ilgan sana<input name="birth_date" type="date" required></label>
+      <label>Telefon<input name="phone" placeholder="+998 90 123 45 67" required></label>
+      <label>Tuman<select name="district_id" id="dDistrict" required></select></label>
+      <label style="grid-column:1/-1">Manzil<input name="address"></label>
+    </div>
+    <div class="form-grid" id="motherFields">
+      <label>Oxirgi hayz sanasi<input name="lmp_date" type="date"></label>
+      <label>Tug'ruqlar soni<input name="parity" type="number" min="0" max="20"></label>
+    </div>
+    <div class="form-grid" id="newbornFields" hidden>
+      <label>Tug'ilgandagi vazn (g)<input name="birth_weight_g" type="number" min="300" max="6500"></label>
+      <label>Gestatsiya (hafta)<input name="gestational_age_at_birth" type="number" min="22" max="44"></label>
+      <label>Apgar 5-daqiqa<input name="apgar5" type="number" min="0" max="10"></label>
+    </div>
+    <div><div class="small muted" style="margin-bottom:6px">Anamnez xavf omillari</div><div class="checks" id="rf"></div></div>
+  </div>
+  <div class="ft"><button value="cancel" formnovalidate>Bekor qilish</button><button class="primary" value="save">Ro'yxatga olish</button></div>
+</form></dialog>
+
+<script src="/assets/common.js"></script>
+<script>
+document.getElementById("hdr").innerHTML = headerHTML("patients");
+let meta, kind = "mother";
+const $ = id => document.getElementById(id);
+
+async function load() {
+  const params = new URLSearchParams();
+  for (const k of ["district", "kind", "zone", "q"]) { const v = $(k).value; if (v) params.set(k === "district" ? "district_id" : k, v); }
+  const list = await api(`/api/patients?${params}`);
+  $("rows").innerHTML = list.map(p => `<tr onclick="location.href='/patient.html?id=${p.id}'">
+    <td>${zoneChip(p.zone)}</td><td><b>${esc(p.full_name)}</b><div class="small muted">${KIND_UZ[p.kind]} · ${esc(p.phone || "")}</div></td>
+    <td class="num">${p.kind === "mother" ? (p.gestational_weeks ?? "—") + " hafta" : p.age_days + " kun"}</td>
+    <td>${esc(p.district)}</td><td class="small">${p.top_reasons.map(esc).join("<br>")}</td>
+    <td class="small muted">${ago(p.last_observation_at)}</td><td>${p.telegram_linked ? "✅" : "—"}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="empty">Topilmadi</td></tr>`;
+}
+
+function renderRF() {
+  const rfs = meta[kind].risk_factors;
+  $("rf").innerHTML = Object.entries(rfs).filter(([, s]) => !s.auto).map(([c, s]) =>
+    `<label><input type="checkbox" name="rf" value="${c}">${esc(s.label)}</label>`).join("");
+  $("motherFields").hidden = kind !== "mother"; $("newbornFields").hidden = kind !== "newborn";
+}
+
+document.querySelectorAll("#kindSeg button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#kindSeg button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+  kind = b.dataset.k; renderRF();
+});
+$("newBtn").onclick = () => { renderRF(); $("dlg").showModal(); };
+$("form").addEventListener("submit", async e => {
+  if (e.submitter?.value !== "save") return;
+  e.preventDefault();
+  const f = new FormData(e.target), body = { kind, risk_factors: f.getAll("rf") };
+  const nums = ["district_id", "parity", "birth_weight_g", "gestational_age_at_birth", "apgar5"];
+  for (const [k, v] of f.entries()) { if (k === "rf" || v === "") continue; body[k] = nums.includes(k) ? Number(v) : v; }
+  try {
+    const p = await api("/api/patients", { method: "POST", body });
+    location.href = `/patient.html?id=${p.id}`;
+  } catch (err) { toast("Xatolik: " + err.message, 6000); }
+});
+let t; $("q").oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
+["district", "kind", "zone"].forEach(id => $(id).onchange = load);
+
+(async () => {
+  meta = await api("/api/meta");
+  const opts = meta.districts.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("");
+  $("district").insertAdjacentHTML("beforeend", opts); $("dDistrict").innerHTML = opts;
+  const z = new URLSearchParams(location.search).get("zone"); if (z) $("zone").value = z;
+  load();
+})();
+</script>
+</body>
+</html>

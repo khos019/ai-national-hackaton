@@ -1,0 +1,147 @@
+# Homilador ayollar uchun rang zonalari qoidalari
+# Based on MEOWS (Modified Early Obstetric Warning Score) principles, WHO ANC
+# danger signs and common preeclampsia / anaemia / GDM thresholds.
+#
+# !!! DEMO THRESHOLDS — must be validated by OvaBMU / obstetricians against the
+# current Ministry of Health of Uzbekistan protocols before real use. !!!
+#
+# Band evaluation: bands are checked top to bottom, first match wins,
+# no match = green. Operators: lt, lte, gt, gte.
+
+version: 1
+kind: mother
+
+aggregation:
+  # MEOWS: one red OR several yellows -> escalate.
+  red_if_yellow_count_gte: 3
+
+parameters:
+  sbp:
+    label: "Sistolik qon bosimi"
+    unit: "mmHg"
+    freshness_days: 14
+    bands:
+      - {zone: red, gte: 160, text: "Og'ir gipertenziya"}
+      - {zone: red, lt: 90, text: "Gipotenziya (qon ketish/shok xavfi)"}
+      - {zone: yellow, gte: 140, text: "Gipertenziya"}
+      - {zone: yellow, lt: 100, text: "Past bosim"}
+  dbp:
+    label: "Diastolik qon bosimi"
+    unit: "mmHg"
+    freshness_days: 14
+    bands:
+      - {zone: red, gte: 110, text: "Og'ir gipertenziya"}
+      - {zone: yellow, gte: 90, text: "Gipertenziya"}
+  heart_rate:
+    label: "Yurak urishi"
+    unit: "/min"
+    freshness_days: 7
+    bands:
+      - {zone: red, gte: 120, text: "Taxikardiya"}
+      - {zone: red, lt: 50, text: "Bradikardiya"}
+      - {zone: yellow, gte: 100, text: "Tez yurak urishi"}
+  temperature:
+    label: "Tana harorati"
+    unit: "°C"
+    freshness_days: 3
+    bands:
+      - {zone: red, gte: 38.5, text: "Yuqori isitma (sepsis xavfi)"}
+      - {zone: red, lt: 35.0, text: "Gipotermiya"}
+      - {zone: yellow, gte: 37.6, text: "Subfebril harorat"}
+  spo2:
+    label: "Kislorod saturatsiyasi"
+    unit: "%"
+    freshness_days: 3
+    bands:
+      - {zone: red, lt: 94, text: "Gipoksiya"}
+      - {zone: yellow, lt: 96, text: "Past saturatsiya"}
+  resp_rate:
+    label: "Nafas soni"
+    unit: "/min"
+    freshness_days: 3
+    bands:
+      - {zone: red, gte: 30, text: "Og'ir taxipnoe"}
+      - {zone: red, lt: 10, text: "Bradipnoe"}
+      - {zone: yellow, gte: 21, text: "Tez nafas"}
+  hemoglobin:
+    label: "Gemoglobin"
+    unit: "g/L"
+    freshness_days: 45
+    bands:
+      - {zone: red, lt: 70, text: "Og'ir anemiya"}
+      - {zone: yellow, lt: 100, text: "O'rta anemiya"}
+  glucose:
+    label: "Qondagi glyukoza (och qoringa)"
+    unit: "mmol/L"
+    freshness_days: 30
+    bands:
+      - {zone: red, gte: 11.1, text: "Yuqori giperglikemiya"}
+      - {zone: red, lt: 3.0, text: "Gipoglikemiya"}
+      - {zone: yellow, gte: 5.1, text: "Gestatsion diabet shubhasi"}
+  proteinuria:
+    label: "Siydikda oqsil"
+    unit: ""
+    freshness_days: 14
+    value_labels: {0: "manfiy", 1: "iz", 2: "1+", 3: "2+", 4: "3+"}
+    bands:
+      - {zone: red, gte: 3, text: "Proteinuriya 2+ va yuqori"}
+      - {zone: yellow, gte: 2, text: "Proteinuriya 1+"}
+
+# WHO pregnancy danger signs — the woman can report these herself.
+symptoms:
+  vaginal_bleeding:       {label: "Qindan qon ketishi", zone: red}
+  convulsions:            {label: "Tutqanoq / talvasa", zone: red}
+  severe_abdominal_pain:  {label: "Qorinda kuchli og'riq", zone: red}
+  reduced_fetal_movement: {label: "Homila harakati kamaydi / sezilmayapti", zone: red}
+  water_leaking:          {label: "Qog'onoq suvi ketmoqda (muddatidan oldin)", zone: red}
+  breathing_difficulty:   {label: "Nafas qisishi", zone: red}
+  severe_headache:        {label: "Kuchli bosh og'rig'i", zone: yellow}
+  blurred_vision:         {label: "Ko'z oldi qorong'ilashishi / xiralashishi", zone: yellow}
+  swelling_face_hands:    {label: "Yuz va qo'llar shishi", zone: yellow}
+  fever:                  {label: "Isitma, titroq", zone: yellow}
+  painful_urination:      {label: "Siyishda og'riq / achishish", zone: yellow}
+  persistent_vomiting:    {label: "To'xtamaydigan qusish", zone: yellow}
+  low_mood:               {label: "Doimiy tushkunlik, xavotir (2 haftadan ortiq)", zone: yellow}
+
+# Combinations that are more dangerous than the parts.
+combos:
+  - code: preeclampsia_symptoms
+    label: "Preeklampsiya belgilari: yuqori bosim + bosh og'rig'i/ko'rish buzilishi/shish"
+    zone: red
+    params: [{param: sbp, gte: 140}]
+    any_symptom: [severe_headache, blurred_vision, swelling_face_hands]
+  - code: preeclampsia_protein
+    label: "Preeklampsiya: gipertenziya + proteinuriya"
+    zone: red
+    params: [{param: sbp, gte: 140}, {param: proteinuria, gte: 2}]
+  - code: sepsis_suspect
+    label: "Sepsis shubhasi: isitma + taxikardiya"
+    zone: red
+    params: [{param: temperature, gte: 38.0}, {param: heart_rate, gte: 100}]
+
+# Background (anamnesis) risk factors. zone_floor = minimum zone while the factor exists.
+risk_factors:
+  age_under_18:         {label: "Yoshi 18 dan kichik", zone_floor: yellow, auto: true}
+  age_over_35:          {label: "Yoshi 35 dan katta", zone_floor: yellow, auto: true}
+  prior_preeclampsia:   {label: "Oldingi homiladorlikda preeklampsiya", zone_floor: yellow}
+  prior_cesarean:       {label: "Oldin kesar kesish", zone_floor: yellow}
+  prior_stillbirth:     {label: "O'lik tug'ilish / homila nobud bo'lishi tarixi", zone_floor: yellow}
+  prior_preterm:        {label: "Oldin muddatidan oldin tug'ish", zone_floor: yellow}
+  multiple_pregnancy:   {label: "Ko'p homilalik (egizak)", zone_floor: yellow}
+  chronic_hypertension: {label: "Surunkali gipertenziya", zone_floor: yellow}
+  diabetes:             {label: "Qandli diabet", zone_floor: yellow}
+  heart_disease:        {label: "Yurak kasalligi", zone_floor: yellow}
+  kidney_disease:       {label: "Buyrak kasalligi", zone_floor: yellow}
+  anemia_history:       {label: "Surunkali anemiya"}
+  grand_multipara:      {label: "5 va undan ko'p tug'ruq", zone_floor: yellow}
+  short_interval:       {label: "Tug'ruqlar orasi 2 yildan kam"}
+  social_risk:          {label: "Ijtimoiy xavf (nogironlik, zo'ravonlik, kam ta'minlanganlik)"}
+
+# Worsening trends: catch deterioration while values are still "normal".
+trends:
+  sbp_rise:      {label: "Qon bosimi barqaror o'smoqda", param: sbp, direction: up, delta: 15, window_days: 21, min_points: 3, zone: yellow}
+  hb_drop:       {label: "Gemoglobin pasaymoqda", param: hemoglobin, direction: down, delta: 15, window_days: 60, min_points: 2, zone: yellow}
+  weight_jump:   {label: "Tez vazn ortishi (shish xavfi)", param: weight, direction: up, delta: 2.0, window_days: 7, min_points: 2, zone: yellow}
+
+# How often we expect data, per zone. Missing data = "missed check-in" alert.
+checkin_days: {green: 14, yellow: 7, red: 2}

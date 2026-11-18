@@ -1,0 +1,88 @@
+# Chaqaloqlar (0-28 kun) uchun rang zonalari qoidalari
+# Based on WHO IMCI young-infant danger signs and NEWTT2-style vital sign bands.
+# !!! DEMO THRESHOLDS — must be validated by neonatologists. !!!
+
+version: 1
+kind: newborn
+
+aggregation:
+  red_if_yellow_count_gte: 2   # newborns deteriorate fast: be stricter
+
+parameters:
+  temperature:
+    label: "Tana harorati"
+    unit: "°C"
+    freshness_days: 2
+    bands:
+      - {zone: red, gte: 38.0, text: "Isitma"}
+      - {zone: red, lt: 35.5, text: "Gipotermiya"}
+      - {zone: yellow, gte: 37.6, text: "Harorat ko'tarilgan"}
+      - {zone: yellow, lt: 36.5, text: "Harorat past"}
+  heart_rate:
+    label: "Yurak urishi"
+    unit: "/min"
+    freshness_days: 2
+    bands:
+      - {zone: red, gte: 180, text: "Og'ir taxikardiya"}
+      - {zone: red, lt: 100, text: "Bradikardiya"}
+      - {zone: yellow, gte: 160, text: "Taxikardiya"}
+      - {zone: yellow, lt: 110, text: "Past yurak urishi"}
+  resp_rate:
+    label: "Nafas soni"
+    unit: "/min"
+    freshness_days: 2
+    bands:
+      - {zone: red, gte: 60, text: "Tez nafas (JSST xavf belgisi)"}
+      - {zone: red, lt: 30, text: "Sekin nafas"}
+      - {zone: yellow, gte: 50, text: "Nafas tezlashgan"}
+  spo2:
+    label: "Kislorod saturatsiyasi"
+    unit: "%"
+    freshness_days: 2
+    bands:
+      - {zone: red, lt: 92, text: "Gipoksiya"}
+      - {zone: yellow, lt: 95, text: "Past saturatsiya"}
+  glucose:
+    label: "Qondagi glyukoza"
+    unit: "mmol/L"
+    freshness_days: 2
+    bands:
+      - {zone: red, lt: 2.0, text: "Og'ir gipoglikemiya"}
+      - {zone: yellow, lt: 2.6, text: "Gipoglikemiya"}
+
+symptoms:
+  poor_feeding:      {label: "Emmayapti / yomon emyapti", zone: red}
+  convulsions:       {label: "Tutqanoq", zone: red}
+  lethargy:          {label: "Holsiz, faqat qo'zg'atganda harakatlanadi", zone: red}
+  fast_breathing:    {label: "Tez nafas olyapti", zone: red}
+  chest_indrawing:   {label: "Ko'krak qafasi ichiga tortilishi", zone: red}
+  blue_lips:         {label: "Lab/teri ko'karishi", zone: red}
+  jaundice_early:    {label: "Sariqlik (1-sutkada yoki kaft-tovonida)", zone: red}
+  jaundice:          {label: "Teri sarg'ayishi", zone: yellow}
+  umbilical_redness: {label: "Kindik qizarishi / yiring", zone: yellow}
+  vomiting:          {label: "Ko'p qusish", zone: yellow}
+  diarrhea:          {label: "Ich ketishi", zone: yellow}
+  skin_pustules:     {label: "Terida yiringli toshmalar", zone: yellow}
+
+combos:
+  - code: neonatal_sepsis
+    label: "Neonatal sepsis shubhasi: harorat buzilishi + tez nafas"
+    zone: red
+    params: [{param: resp_rate, gte: 50}]
+    any_symptom: [lethargy, poor_feeding]
+
+risk_factors:
+  low_birth_weight:      {label: "Kam vazn (<2500 g)", zone_floor: yellow, auto: true}
+  very_low_birth_weight: {label: "Juda kam vazn (<1500 g)", zone_floor: red, auto: true}
+  preterm:               {label: "Chala tug'ilgan (<37 hafta)", zone_floor: yellow, auto: true}
+  very_preterm:          {label: "Juda chala (<32 hafta)", zone_floor: red, auto: true}
+  low_apgar:             {label: "Apgar 5-daqiqada <7", zone_floor: yellow, auto: true}
+  resuscitation:         {label: "Tug'ilganda reanimatsiya qilingan", zone_floor: yellow}
+  maternal_infection:    {label: "Onada infeksiya / suv uzoq ketgan (>18 soat)", zone_floor: yellow}
+  maternal_diabetes:     {label: "Onada diabet (gipoglikemiya xavfi)", zone_floor: yellow}
+  congenital_anomaly:    {label: "Tug'ma nuqson", zone_floor: yellow}
+
+trends:
+  weight_loss: {label: "Vazn tushib ketmoqda", param: weight, direction: down, delta: 0.25, window_days: 7, min_points: 2, zone: yellow}
+
+checkin_days: {green: 7, yellow: 2, red: 1}

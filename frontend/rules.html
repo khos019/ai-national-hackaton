@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qoidalar va ML</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main class="grid">
+  <div class="card"><div class="bd">
+    <b>Qanday ishlaydi.</b> Har bir yangi ma'lumotdan keyin zona qayta hisoblanadi. Zona — quyidagilarning eng yomoni:
+    ko'rsatkichlar chegaralari, xavfli belgilar, kombinatsiyalar (masalan, bosim + proteinuriya), yomonlashish trendlari va anamnez omillari.
+    MEOWS tamoyili bo'yicha bir nechta sariq ko'rsatkich qizilga aylanadi. ML model faqat maslahat beradi: yashilni sariqqa ko'tarishi mumkin, lekin o'zi qizil xabarnoma yaratmaydi.
+    <div class="small muted" style="margin-top:6px">⚠️ Chegaralar demo uchun — amaldagi SSV protokollari asosida akusher-ginekolog va neonatologlar tomonidan tasdiqlanishi shart. Qoidalar <code>backend/app/rules/*.yaml</code> faylida.</div>
+  </div></div>
+  <div class="grid cols-main">
+    <div class="grid" style="align-content:start" id="rules"></div>
+    <div class="grid" style="align-content:start">
+      <div class="card"><div class="hd"><h2>ML model</h2></div><div class="bd" id="ml"></div></div>
+      <div class="card"><div class="hd"><h2>Ma'lumotlarni eksport (ML o'qitish uchun)</h2></div><div class="bd">
+        <p style="margin-top:0">Har bir kuzatuv — bitta qator: ko'rsatkichlar, belgilar, manba (o'zi/klinika), anamnez va natija yorlig'i. Ism va telefon chiqarilmaydi.</p>
+        <a class="btn" href="/api/export/ml-dataset.csv">⬇️ perizone_ml_dataset.csv</a>
+      </div></div>
+      <div class="card"><div class="hd"><h2>Xodimlar va Telegram ulash</h2></div><div class="bd">
+        <p style="margin-top:0" class="small muted">Xodim botga <code>/staff KOD</code> yuboradi — xabarnomalar shu chatga keladi.</p>
+        <table><thead><tr><th>Xodim</th><th>Rol</th><th>Kod</th><th>TG</th></tr></thead><tbody id="staff"></tbody></table>
+      </div></div>
+    </div>
+  </div>
+</main>
+<script src="/assets/common.js"></script>
+<script>
+document.getElementById("hdr").innerHTML = headerHTML("rules");
+const ROLE = { specialist: "OvaBMU mutaxassisi", head: "Bosh shifokor", regional: "Viloyat", nurse: "Hamshira" };
+const op = b => [["gte", "≥"], ["gt", ">"], ["lte", "≤"], ["lt", "<"]].filter(([k]) => b[k] != null).map(([k, s]) => `${s} ${b[k]}`).join(" va ");
+
+function rulesCard(title, r) {
+  const params = Object.entries(r.parameters).map(([k, p]) => `<tr><td><b>${esc(p.label)}</b><div class="small muted">${esc(p.unit || "")}</div></td>
+    <td>${p.bands.map(b => `<div><span class="dot ${b.zone}"></span> ${p.value_labels ? b.gte != null ? "≥ " + p.value_labels[b.gte] : op(b) : op(b)} <span class="muted small">${esc(b.text || "")}</span></div>`).join("")}</td></tr>`).join("");
+  const sym = Object.values(r.symptoms).map(s => `<div><span class="dot ${s.zone}"></span> ${esc(s.label)}</div>`).join("");
+  const combos = (r.combos || []).map(c => `<div><span class="dot ${c.zone}"></span> ${esc(c.label)}</div>`).join("");
+  const trends = Object.values(r.trends || {}).map(t => `<div><span class="dot ${t.zone}"></span> ${esc(t.label)} <span class="small muted">(${t.direction === "up" ? "+" : "−"}${t.delta}, ${t.window_days} kun)</span></div>`).join("");
+  const rf = Object.values(r.risk_factors).map(f => `<div><span class="dot ${f.zone_floor || "green"}"></span> ${esc(f.label)}</div>`).join("");
+  return `<div class="card"><div class="hd"><h2>${title}</h2><span class="small muted">${r.aggregation?.red_if_yellow_count_gte} ta sariq → qizil</span></div>
+    <div class="bd flush"><table><thead><tr><th>Ko'rsatkich</th><th>Chegaralar</th></tr></thead><tbody>${params}</tbody></table></div>
+    <div class="bd grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+      <div><h3 class="small muted">Xavfli belgilar</h3>${sym}</div>
+      <div><h3 class="small muted">Kombinatsiyalar</h3>${combos || "—"}<h3 class="small muted" style="margin-top:10px">Trendlar</h3>${trends || "—"}</div>
+      <div><h3 class="small muted">Anamnez (minimal zona)</h3>${rf}</div></div></div>`;
+}
+
+(async () => {
+  const [m, n, model, staff] = await Promise.all([api("/api/rules/mother"), api("/api/rules/newborn"), api("/api/model"), api("/api/staff")]);
+  document.getElementById("rules").innerHTML = rulesCard("🤰 Homilador ayollar", m) + rulesCard("👶 Chaqaloqlar (0–28 kun)", n);
+  if (model.error) document.getElementById("ml").innerHTML = `<div class="muted">${esc(model.error)}</div>`;
+  else {
+    const rows = Object.entries(model.cv).map(([k, v]) => `<tr><td>${k === model.model_name ? "<b>" + k + "</b> ✓" : k}</td><td class="num">${v.macro_f1}</td><td class="num">${v.high_risk_recall}</td></tr>`).join("");
+    document.getElementById("ml").innerHTML = `<dl class="kv"><dt>Ma'lumot</dt><dd><a href="${model.dataset.url}" target="_blank" rel="noopener">${esc(model.dataset.name)}</a></dd>
+      <dt>Qatorlar</dt><dd>${model.dataset.rows_raw} (takrorlanmaydigan: ${model.dataset.rows_unique})</dd>
+      <dt>Belgilar</dt><dd>${model.features.join(", ")}</dd><dt>O'qitilgan</dt><dd>${fmtDate(model.trained_at)}</dd></dl>
+      <table style="margin-top:10px"><thead><tr><th>Model (5-fold CV)</th><th>Macro F1</th><th>Yuqori xavf recall</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="small muted">${esc(model.notes)} Takroriy qatorlar olib tashlanmasa, aniqlik sun'iy ravishda ~85–90% ko'rinadi.</p>`;
+  }
+  document.getElementById("staff").innerHTML = staff.filter(s => s.role !== "nurse").map(s => `<tr style="cursor:default"><td class="small">${esc(s.full_name)}</td><td class="small">${ROLE[s.role]}</td><td><code>${s.link_code}</code></td><td>${s.telegram_linked ? "✅" : "—"}</td></tr>`).join("");
+})();
+</script>
+</body>
+</html>
