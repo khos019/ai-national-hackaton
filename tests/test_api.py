@@ -201,3 +201,14 @@ def test_registration_requires_baseline_exam_and_sets_zone(db_setup):
     obs = a.get(f"/api/patients/{p['id']}").json()["observations"]
     assert len(obs) == 1 and obs[0]["source"] == "clinic" and obs[0]["hemoglobin"] == 95
     assert a.get("/api/alerts?status=active").json()[0]["patient_id"] == p["id"]
+
+
+def test_incoming_reports_show_normal_values_to_own_doctor_only(db_setup):
+    a, b = login(DOC_A), login(DOC_B)
+    register(a)
+    with TestClient(app) as anon:
+        anon.post("/api/self-report", json={"phone": "901112233", "sbp": 120, "dbp": 70})
+    reps = a.get("/api/reports").json()
+    assert reps[0]["summary"] == "Qon bosimi 120/70" and reps[0]["level"] == "green"
+    assert a.get("/api/alerts?status=active").json() == []        # normal value: no alert, but visible as a report
+    assert b.get("/api/reports").json() == []                      # other doctor sees nothing

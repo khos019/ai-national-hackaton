@@ -409,6 +409,37 @@ def list_alerts(status: str | None = None, district_id: int | None = None, limit
     return [alert_dict(a) for a in alerts]
 
 
+@router.get("/reports")
+def incoming_reports(limit: int = Query(40, le=200), db: Session = Depends(get_db),
+                     staff: Staff = Depends(current_staff)):
+    """Everything women sent from Telegram / the mother page (normal values too), newest first."""
+    stmt = (select(models.Observation).join(models.Patient).where(models.Observation.source == "self")
+            .order_by(models.Observation.recorded_at.desc()).limit(limit))
+    out = []
+    for o in db.scalars(scope_patients(stmt, staff)):
+        p = o.patient
+        rules = get_rules(p.kind)
+        findings = [f for f in rules.evaluate({"risk_factors": []}, [o], o.recorded_at).findings if f.zone != "green"]
+        level = "red" if any(f.zone == "red" for f in findings) else "yellow" if findings else "green"
+        parts = []
+        if o.sbp is not None:
+            parts.append(f"Qon bosimi {o.sbp:g}/{(o.dbp or 0):g}")
+        for key, label, unit in (("temperature", "Harorat", "°C"), ("weight", "Vazn", "kg"), ("glucose", "Qand", "mmol/L"),
+                                 ("fetal_movements", "Homila harakati", "marta"), ("heart_rate", "Puls", "")):
+            v = getattr(o, key)
+            if v is not None:
+                parts.append(f"{label} {v:g} {unit}".strip())
+        if o.meds_taken is not None:
+            parts.append("Temir/foliy: " + ("ichdi" if o.meds_taken else "ichmadi"))
+        sym = [rules.symptoms[s]["label"] for s in (o.symptoms or []) if s in rules.symptoms]
+        if not parts and not sym:
+            parts.append("Hammasi yaxshi 👍")
+        out.append({"id": o.id, "at": iso(o.recorded_at), "patient_id": p.id, "patient_name": p.full_name,
+                    "patient_kind": p.kind, "zone": p.zone, "level": level, "summary": " · ".join(parts),
+                    "symptoms": sym, "via_ai": bool(o.note and o.note.startswith("AI:"))})
+    return out
+
+
 @router.get("/alerts/{aid}")
 def get_alert(aid: int, db: Session = Depends(get_db), staff: Staff = Depends(current_staff)):
     return alert_dict(_alert_for(db, staff, aid), with_events=True)

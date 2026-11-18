@@ -184,9 +184,30 @@ async function checkAlerts() {
     }
   } catch {}
 }
+let _lastReport = null;
+async function checkReports() {
+  try {
+    const reps = await api("/api/reports?limit=10", { noRedirect: true });
+    if (!reps.length) return;
+    if (_lastReport !== null) {
+      const fresh = reps.filter(r => r.at > _lastReport);
+      if (fresh.length) {
+        const r = fresh[0];
+        if (r.level === "green") beep();  // abnormal ones also raise an alert (handled by checkAlerts)
+        toast(`📥 ${r.patient_name}: ${r.summary}${r.symptoms.length ? " · " + r.symptoms.join(", ") : ""}`, 6000);
+        if ("Notification" in window && Notification.permission === "granted" && r.level === "green") {
+          const n = new Notification("PeriZone — bemordan ma'lumot", { body: `${r.patient_name}: ${r.summary}`, tag: "pz-rep-" + r.id });
+          n.onclick = () => { window.focus(); location.href = `/patient.html?id=${r.patient_id}`; };
+        }
+        document.dispatchEvent(new CustomEvent("pz:new-alerts", { detail: [] }));
+      }
+    }
+    _lastReport = reps[0].at;
+  } catch {}
+}
 function startAlertWatcher() {
-  checkAlerts();
-  setInterval(checkAlerts, 10000);
+  checkAlerts(); checkReports();
+  setInterval(() => { checkAlerts(); checkReports(); }, 8000);
   if ("Notification" in window && Notification.permission === "default") {
     const card = document.querySelector(".user-card");
     const b = document.createElement("button");

@@ -53,7 +53,7 @@
     <div class="grid" style="align-content:start">
       <div class="card">
         <div class="card-h"><h2>Xabarnomalar</h2><span class="spacer"></span>
-          <div class="tabs" id="alertTabs"><button data-s="active" class="on">Faol</button><button data-s="">Tarix</button></div></div>
+          <div class="tabs" id="alertTabs"><button data-s="active" class="on">Faol</button><button data-s="reports">📥 Bemorlardan <span class="count hidden" id="repCount" style="background:var(--primary);color:#fff;border-radius:999px;padding:0 6px;font-size:11px"></span></button><button data-s="">Tarix</button></div></div>
         <div class="feed" id="alerts"></div>
       </div>
 
@@ -182,7 +182,28 @@ function alertHTML(a, isNew) {
     <div class="m">${esc(a.message)}</div>${acts}</div></div>`;
 }
 
+let lastReportSeen = null;
+function reportHTML(r) {
+  const tag = { red: '<span class="badge bad">xavfli</span>', yellow: `<span class="badge warn">e'tibor</span>`, green: `<span class="badge ok">me'yorda</span>` }[r.level];
+  return `<div class="alert-item ${r.level === "green" ? "" : r.level}" style="cursor:pointer" onclick="location.href='/patient.html?id=${r.patient_id}'">
+    <div class="ic" style="background:var(--primary-soft);color:var(--primary)">${icon(r.via_ai ? "bot" : "telegram")}</div><div style="min-width:0">
+    <div class="t">${esc(r.patient_name)} ${tag}</div>
+    <div class="small muted">${ago(r.at)} · ${r.via_ai ? "AI yordamchi orqali" : "Telegram bot"} · bemor zonasi: ${ZONE_UZ[r.zone]}</div>
+    <div class="m" style="color:var(--text-2)">${esc(r.summary)}${r.symptoms.length ? (r.summary && !r.summary.startsWith("Hammasi") ? " · " : "") + r.symptoms.map(esc).join(", ") : ""}</div></div></div>`;
+}
+async function loadReports(render) {
+  const reps = await api("/api/reports?limit=40");
+  const newest = reps[0]?.at || null;
+  const unseen = lastReportSeen ? reps.filter(r => r.at > lastReportSeen).length : 0;
+  const badge = document.getElementById("repCount");
+  if (render) { lastReportSeen = newest; badge.classList.add("hidden"); }
+  else if (lastReportSeen === null) lastReportSeen = newest;
+  else if (unseen) { badge.textContent = unseen; badge.classList.remove("hidden"); }
+  if (render) document.getElementById("alerts").innerHTML = reps.map(reportHTML).join("") || emptyState("Bemorlardan hali ma'lumot kelmagan", "telegram");
+}
 async function loadAlerts() {
+  if (state.alertStatus === "reports") return loadReports(true);
+  loadReports(false);
   const params = new URLSearchParams({ limit: 50 });
   if (state.alertStatus) params.set("status", state.alertStatus);
   if (state.district) params.set("district_id", state.district);
